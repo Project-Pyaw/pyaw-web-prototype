@@ -6,11 +6,13 @@ import {
   getProfileDisplayName,
   ProfileAvatar,
 } from "@/features/profile/components/profile-avatar";
+import { MessageHistory } from "@/features/messages/components/message-history";
 
 import type { ConversationListItem } from "../types";
 
 type ConversationEmptyStateProps = Readonly<{
   conversation?: ConversationListItem;
+  currentAccountId: string;
   isLoading: boolean;
   selectedConversationId?: string;
   self: Readonly<{
@@ -22,6 +24,7 @@ type ConversationEmptyStateProps = Readonly<{
 
 export function ConversationEmptyState({
   conversation,
+  currentAccountId,
   isLoading,
   selectedConversationId,
   self,
@@ -30,7 +33,7 @@ export function ConversationEmptyState({
   const isSelf = conversation?.type === "SELF";
   const identity = conversation
     ? isSelf
-      ? (conversation.self?.label ?? "Saved Messages")
+      ? (conversation.self?.label ?? "Notes")
       : getProfileDisplayName(
           conversation.counterpart?.profile?.displayName,
           conversation.counterpart?.username,
@@ -90,11 +93,11 @@ export function ConversationEmptyState({
           ) : null}
         </div>
       </header>
-      <div className="grid flex-1 place-items-center p-6 text-center">
-        <p className="text-sm text-foreground-muted">
-          Messages are coming soon.
-        </p>
-      </div>
+      <MessageHistory
+        conversationId={conversation.id}
+        conversationType={isSelf ? "SELF" : "DIRECT"}
+        currentAccountId={currentAccountId}
+      />
     </section>
   );
 }

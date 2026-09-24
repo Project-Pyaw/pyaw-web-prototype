@@ -5,6 +5,10 @@ import { useState } from "react";
 
 import { ApiError } from "@/lib/api/api-error";
 import { ConnectionsPanel } from "@/features/connections/components/connections-panel";
+import {
+  getProfileDisplayName,
+  ProfileAvatar,
+} from "@/features/profile/components/profile-avatar";
 
 import { ConversationEmptyState } from "./conversation-empty-state";
 import { ConversationSidebar } from "./conversation-sidebar";
@@ -38,7 +42,11 @@ export function ChatShell({
   const openDirect = useOpenDirectConversation();
   const selectedConversation = conversations.data?.pages
     .flatMap((page) => page.items)
-    .find((conversation) => conversation.id === selectedConversationId);
+    .find(
+      (conversation) =>
+        conversation.id === selectedConversationId &&
+        (conversation.type === "DIRECT" || conversation.type === "SELF"),
+    );
 
   function handleMessage(accountId: string) {
     openDirect.mutate(accountId, {
@@ -65,7 +73,7 @@ export function ChatShell({
           } w-full shrink-0 flex-col md:w-80 md:border-r md:border-border`}
         >
           <nav
-            className="flex border-b border-border px-4 pt-4"
+            className="flex items-center border-b border-border px-4 pt-4"
             aria-label="Workspace"
           >
             <button
@@ -91,6 +99,20 @@ export function ChatShell({
               type="button"
             >
               Connections
+            </button>
+            <button
+              aria-label="Profile"
+              className="ml-auto -mt-2 rounded-full outline-none focus:ring-2 focus:ring-focus/20"
+              onClick={() => router.push("/profile")}
+              type="button"
+            >
+              <ProfileAvatar
+                name={getProfileDisplayName(
+                  currentProfile.displayName,
+                  currentAccount.username,
+                )}
+                url={currentProfile.avatar}
+              />
             </button>
           </nav>
           {workspace === "chats" ? (
@@ -131,6 +153,7 @@ export function ChatShell({
           >
             <ConversationEmptyState
               conversation={selectedConversation}
+              currentAccountId={currentAccount.id}
               isLoading={conversations.isPending}
               selectedConversationId={selectedConversationId}
               self={self}

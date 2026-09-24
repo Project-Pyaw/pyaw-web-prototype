@@ -44,7 +44,7 @@ function ConversationRow({
   const router = useRouter();
   const isSelf = conversation.type === "SELF";
   const identity = isSelf
-    ? (conversation.self?.label ?? "Saved Messages")
+    ? (conversation.self?.label ?? "Notes")
     : getProfileDisplayName(
         conversation.counterpart?.profile?.displayName,
         conversation.counterpart?.username,
@@ -102,6 +102,7 @@ export function ConversationSidebar({
       ),
     ) ?? [];
   const identity = getProfileDisplayName(self.displayName, self.username);
+  const hasNotes = items.some((conversation) => conversation.type === "SELF");
 
   function handleOpenSelf() {
     openSelf.mutate(undefined, {
@@ -116,31 +117,31 @@ export function ConversationSidebar({
           Chats
         </h1>
       </div>
-      <div className="border-b border-border p-3">
-        <button
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={openSelf.isPending}
-          onClick={handleOpenSelf}
-          type="button"
-        >
-          <ProfileAvatar name={identity} url={self.avatar} />
-          <span className="min-w-0">
-            <span className="block font-medium text-foreground">
-              Saved Messages
+      {!hasNotes ? (
+        <div className="border-b border-border p-3">
+          <button
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={openSelf.isPending}
+            onClick={handleOpenSelf}
+            type="button"
+          >
+            <ProfileAvatar name={identity} url={self.avatar} />
+            <span className="min-w-0">
+              <span className="block font-medium text-foreground">Notes</span>
+              <span className="block text-sm text-foreground-muted">
+                Keep notes for yourself
+              </span>
             </span>
-            <span className="block text-sm text-foreground-muted">
-              Keep notes for yourself
-            </span>
-          </span>
-        </button>
-        {openSelf.isError ? (
-          <p className="px-3 pt-2 text-sm text-danger" role="alert">
-            {openSelf.error instanceof ApiError
-              ? openSelf.error.message
-              : "Saved Messages is unavailable."}
-          </p>
-        ) : null}
-      </div>
+          </button>
+          {openSelf.isError ? (
+            <p className="px-3 pt-2 text-sm text-danger" role="alert">
+              {openSelf.error instanceof ApiError
+                ? openSelf.error.message
+                : "Notes is unavailable."}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {conversations.isPending ? (
           <p className="px-3 py-4 text-sm text-foreground-muted">

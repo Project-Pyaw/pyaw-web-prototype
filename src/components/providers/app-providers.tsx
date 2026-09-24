@@ -8,6 +8,7 @@ import { getPublicConfig } from "@/config/env";
 import { useSessionStatus } from "@/features/auth/session/use-session-status";
 import { connectionsQueryKey } from "@/features/connections/hooks/use-connections";
 import { conversationsQueryKey } from "@/features/conversations/hooks/use-conversations";
+import { messagesQueryKey } from "@/features/messages/hooks/use-message-history";
 import { currentProfileQueryKey } from "@/features/profile/hooks/use-current-profile";
 import { createQueryClient } from "@/lib/query/query-client";
 
@@ -24,6 +25,7 @@ function SessionQueryCacheBoundary({ children }: AppProvidersProps) {
       queryClient.removeQueries({ queryKey: currentProfileQueryKey });
       queryClient.removeQueries({ queryKey: connectionsQueryKey });
       queryClient.removeQueries({ queryKey: conversationsQueryKey });
+      queryClient.removeQueries({ queryKey: messagesQueryKey });
     }
   }, [queryClient, status]);
 
