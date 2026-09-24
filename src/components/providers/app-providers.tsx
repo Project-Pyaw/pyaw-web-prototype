@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { getPublicConfig } from "@/config/env";
 import { useSessionStatus } from "@/features/auth/session/use-session-status";
+import { connectionsQueryKey } from "@/features/connections/hooks/use-connections";
 import { currentProfileQueryKey } from "@/features/profile/hooks/use-current-profile";
 import { createQueryClient } from "@/lib/query/query-client";
 
@@ -20,6 +21,7 @@ function SessionQueryCacheBoundary({ children }: AppProvidersProps) {
   useEffect(() => {
     if (status === "unauthenticated") {
       queryClient.removeQueries({ queryKey: currentProfileQueryKey });
+      queryClient.removeQueries({ queryKey: connectionsQueryKey });
     }
   }, [queryClient, status]);
 
