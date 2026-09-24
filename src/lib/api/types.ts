@@ -22,5 +22,7 @@ export type ApiRequestOptions = Omit<
   RequestInit,
   "body" | "headers" | "method"
 > & {
+  authentication?: "auto" | "none";
   headers?: HeadersInit;
+  retryOnAccessTokenExpired?: boolean;
 };

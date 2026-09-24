@@ -10,6 +10,7 @@ import type {
 
 export type ApiClientOptions = Readonly<{
   getAccessToken?: () => string | undefined;
+  refreshAccessToken?: () => Promise<boolean>;
 }>;
 
 function buildApiUrl(path: string): string {
@@ -118,15 +119,23 @@ export class ApiClient {
     path: string,
     options: ApiRequestOptions = {},
     body?: unknown,
+    retriedAfterRefresh = false,
   ): Promise<ApiResponse<T>> {
-    const headers = new Headers(options.headers);
+    const {
+      authentication = "auto",
+      headers: requestHeaders,
+      retryOnAccessTokenExpired = true,
+      ...requestOptions
+    } = options;
+    const headers = new Headers(requestHeaders);
     headers.set("Accept", "application/json");
 
     if (body !== undefined) {
       headers.set("Content-Type", "application/json");
     }
 
-    const accessToken = this.options.getAccessToken?.();
+    const accessToken =
+      authentication === "auto" ? this.options.getAccessToken?.() : undefined;
 
     if (accessToken) {
       headers.set("Authorization", `Bearer ${accessToken}`);
@@ -136,7 +145,7 @@ export class ApiClient {
 
     try {
       response = await fetch(buildApiUrl(path), {
-        ...options,
+        ...requestOptions,
         body: body === undefined ? undefined : JSON.stringify(body),
         headers,
         method,
@@ -172,11 +181,28 @@ export class ApiClient {
     const payload = await this.readJson(response);
 
     if (isFailureEnvelope(payload)) {
-      throw new ApiError({
+      const apiError = new ApiError({
         code: payload.error.code,
         message: payload.error.message,
         status: response.status,
       });
+
+      if (
+        !retriedAfterRefresh &&
+        retryOnAccessTokenExpired &&
+        authentication === "auto" &&
+        apiError.status === 401 &&
+        apiError.code === "ACCESS_TOKEN_EXPIRED" &&
+        this.options.refreshAccessToken
+      ) {
+        const refreshed = await this.options.refreshAccessToken();
+
+        if (refreshed) {
+          return this.request<T>(method, path, options, body, true);
+        }
+      }
+
+      throw apiError;
     }
 
     if (!response.ok) {

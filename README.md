@@ -19,3 +19,12 @@ Deployments must set the same variables in their own environment configuration.
 
 Run `yarn lint`, `yarn typecheck`, and `yarn build` after configuring the
 required environment variables.
+
+## Session security
+
+Access and refresh tokens are held only in browser memory. They are never
+written to browser storage, URLs, or readable cookies. The current backend
+accepts refresh tokens in a request body and does not provide an HttpOnly
+cookie-based web refresh session, so a full browser reload or a separate tab
+starts unauthenticated. A future backend cookie-session contract can replace
+this limitation without changing feature APIs.
