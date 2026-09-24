@@ -1,8 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  /* Mirrors Pyaw mobile's light theme and chat treatment. */
+  --pyaw-background: #ffffff;
+  --pyaw-surface: #ffffff;
+  --pyaw-surface-muted: #f5f5f5;
+  --pyaw-foreground: #000000;
+  --pyaw-foreground-muted: #757575;
+  --pyaw-border: #eeeeee;
+  --pyaw-primary: #e60012;
+  --pyaw-primary-foreground: #ffffff;
+  --pyaw-input: #ffffff;
+  --pyaw-focus: #e60012;
+  --pyaw-danger: #e60012;
+  --pyaw-message-outgoing: #e31b23;
+  --pyaw-message-outgoing-foreground: #ffffff;
+  --pyaw-message-incoming: #f0f0f0;
+  --pyaw-message-incoming-foreground: #000000;
+}
+
+@theme inline {
+  --color-background: var(--pyaw-background);
+  --color-surface: var(--pyaw-surface);
+  --color-surface-muted: var(--pyaw-surface-muted);
+  --color-foreground: var(--pyaw-foreground);
+  --color-foreground-muted: var(--pyaw-foreground-muted);
+  --color-border: var(--pyaw-border);
+  --color-primary: var(--pyaw-primary);
+  --color-primary-foreground: var(--pyaw-primary-foreground);
+  --color-input: var(--pyaw-input);
+  --color-focus: var(--pyaw-focus);
+  --color-danger: var(--pyaw-danger);
+  --color-message-outgoing: var(--pyaw-message-outgoing);
+  --color-message-outgoing-foreground: var(--pyaw-message-outgoing-foreground);
+  --color-message-incoming: var(--pyaw-message-incoming);
+  --color-message-incoming-foreground: var(--pyaw-message-incoming-foreground);
 }
 
 * {
@@ -12,7 +44,7 @@
 body {
   min-height: 100vh;
   margin: 0;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--pyaw-background);
+  color: var(--pyaw-foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

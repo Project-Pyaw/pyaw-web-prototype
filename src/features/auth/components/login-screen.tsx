@@ -131,14 +131,14 @@ export function LoginScreen() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-50 p-6">
-      <section className="w-full max-w-md space-y-6 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+    <main className="grid min-h-screen place-items-center bg-background p-6">
+      <section className="w-full max-w-md space-y-6 rounded-xl border border-border bg-surface p-8 shadow-sm">
         <div className="space-y-2">
-          <p className="text-sm font-medium text-sky-700">Pyaw</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+          <p className="text-sm font-medium text-primary">Pyaw</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {step === "phone" ? "Sign in with your phone" : "Enter your code"}
           </h1>
-          <p className="text-sm leading-6 text-slate-600">
+          <p className="text-sm leading-6 text-foreground-muted">
             {step === "phone"
               ? "We’ll send a one-time code to continue."
               : `We sent a code to ${maskPhoneNumber(requestedPhone)}.`}
@@ -149,14 +149,14 @@ export function LoginScreen() {
           <form className="space-y-5" onSubmit={handleRequestOtp}>
             <div className="space-y-2">
               <label
-                className="text-sm font-medium text-slate-800"
+                className="text-sm font-medium text-foreground"
                 htmlFor="phone"
               >
                 Phone number
               </label>
               <input
                 autoComplete="tel"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-950 outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
+                className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20"
                 disabled={isPending}
                 id="phone"
                 inputMode="tel"
@@ -173,13 +173,13 @@ export function LoginScreen() {
             </div>
 
             {error ? (
-              <p className="text-sm text-red-700" role="alert">
+              <p className="text-sm text-danger" role="alert">
                 {error}
               </p>
             ) : null}
 
             <button
-              className="w-full rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isPending}
               type="submit"
             >
@@ -190,7 +190,7 @@ export function LoginScreen() {
           <form className="space-y-5" onSubmit={handleVerifyOtp}>
             <div className="space-y-2">
               <label
-                className="text-sm font-medium text-slate-800"
+                className="text-sm font-medium text-foreground"
                 htmlFor="otp"
               >
                 Six-digit code
@@ -198,7 +198,7 @@ export function LoginScreen() {
               <input
                 aria-describedby={error ? "otp-error" : undefined}
                 autoComplete="one-time-code"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-lg tracking-[0.35em] text-slate-950 outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
+                className="w-full rounded-lg border border-border bg-input px-3 py-2.5 font-mono text-lg tracking-[0.35em] text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20"
                 disabled={isPending}
                 id="otp"
                 inputMode="numeric"
@@ -213,13 +213,13 @@ export function LoginScreen() {
             </div>
 
             {error ? (
-              <p className="text-sm text-red-700" id="otp-error" role="alert">
+              <p className="text-sm text-danger" id="otp-error" role="alert">
                 {error}
               </p>
             ) : null}
 
             <button
-              className="w-full rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isPending}
               type="submit"
             >
@@ -227,7 +227,7 @@ export function LoginScreen() {
             </button>
             <div className="flex justify-between gap-4 text-sm">
               <button
-                className="text-sky-700 underline underline-offset-4 disabled:opacity-60"
+                className="text-primary underline underline-offset-4 disabled:opacity-60"
                 disabled={isPending}
                 onClick={returnToPhoneEntry}
                 type="button"
@@ -235,7 +235,7 @@ export function LoginScreen() {
                 Change number
               </button>
               <button
-                className="text-sky-700 underline underline-offset-4 disabled:opacity-60"
+                className="text-primary underline underline-offset-4 disabled:opacity-60"
                 disabled={isPending}
                 onClick={() => void requestOtpForPhone(requestedPhone)}
                 type="button"

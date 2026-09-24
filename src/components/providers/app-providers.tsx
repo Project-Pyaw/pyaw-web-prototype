@@ -1,15 +1,30 @@
 "use client";
 
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { getPublicConfig } from "@/config/env";
+import { useSessionStatus } from "@/features/auth/session/use-session-status";
+import { currentProfileQueryKey } from "@/features/profile/hooks/use-current-profile";
 import { createQueryClient } from "@/lib/query/query-client";
 
 type AppProvidersProps = Readonly<{
   children: ReactNode;
 }>;
+
+function SessionQueryCacheBoundary({ children }: AppProvidersProps) {
+  const { status } = useSessionStatus();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      queryClient.removeQueries({ queryKey: currentProfileQueryKey });
+    }
+  }, [queryClient, status]);
+
+  return children;
+}
 
 export function AppProviders({ children }: AppProvidersProps) {
   getPublicConfig();
@@ -17,6 +32,8 @@ export function AppProviders({ children }: AppProvidersProps) {
   const [queryClient] = useState(createQueryClient);
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <SessionQueryCacheBoundary>{children}</SessionQueryCacheBoundary>
+    </QueryClientProvider>
   );
 }

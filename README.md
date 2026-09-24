@@ -31,3 +31,7 @@ this limitation without changing feature APIs.
 
 Phone OTP request and verification use public API calls directly so responses
 containing tokens are never retained in a TanStack Query cache.
+
+The authenticated current-user profile is TanStack Query server state. It is
+evicted when the in-memory session becomes unauthenticated; signed avatar URLs
+are treated as temporary and are not persisted or constructed by the client.
