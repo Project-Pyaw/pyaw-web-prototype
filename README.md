@@ -28,3 +28,6 @@ accepts refresh tokens in a request body and does not provide an HttpOnly
 cookie-based web refresh session, so a full browser reload or a separate tab
 starts unauthenticated. A future backend cookie-session contract can replace
 this limitation without changing feature APIs.
+
+Phone OTP request and verification use public API calls directly so responses
+containing tokens are never retained in a TanStack Query cache.
