@@ -19,6 +19,8 @@ import type { ConnectionIdentity, ConnectionRequest } from "../types";
 
 type ConnectionsPanelProps = Readonly<{
   currentAccountId: string;
+  isOpeningConversation?: boolean;
+  onMessage?: (accountId: string) => void;
 }>;
 
 function getErrorMessage(error: unknown): string {
@@ -96,7 +98,11 @@ function ConnectionRequestItem({
   );
 }
 
-export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
+export function ConnectionsPanel({
+  currentAccountId,
+  isOpeningConversation = false,
+  onMessage,
+}: ConnectionsPanelProps) {
   const [phone, setPhone] = useState("");
   const lookup = useAccountLookup();
   const sendRequest = useSendConnectionRequest();
@@ -285,9 +291,19 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
             {connections.data.items.map((connection) => (
               <li
                 key={connection.id}
-                className="rounded-xl border border-border p-4"
+                className="flex items-center justify-between gap-3 rounded-xl border border-border p-4"
               >
                 <Identity account={connection.counterpart} />
+                {onMessage ? (
+                  <button
+                    className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isOpeningConversation}
+                    onClick={() => onMessage(connection.counterpart.id)}
+                    type="button"
+                  >
+                    {isOpeningConversation ? "Opening…" : "Message"}
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
