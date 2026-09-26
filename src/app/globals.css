@@ -17,6 +17,8 @@
   --pyaw-message-outgoing-foreground: #ffffff;
   --pyaw-message-incoming: #f0f0f0;
   --pyaw-message-incoming-foreground: #000000;
+  --pyaw-avatar: #fbeaec;
+  --pyaw-skeleton: #eeeeee;
 }
 
 @theme inline {
@@ -35,6 +37,8 @@
   --color-message-outgoing-foreground: var(--pyaw-message-outgoing-foreground);
   --color-message-incoming: var(--pyaw-message-incoming);
   --color-message-incoming-foreground: var(--pyaw-message-incoming-foreground);
+  --color-avatar: var(--pyaw-avatar);
+  --color-skeleton: var(--pyaw-skeleton);
 }
 
 * {
@@ -43,8 +47,43 @@
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
+  overflow-x: hidden;
   background: var(--pyaw-background);
   color: var(--pyaw-foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.chat-composer {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.skeleton {
+  background: var(--pyaw-skeleton);
+  animation: pyaw-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pyaw-skeleton-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  .skeleton {
+    animation: none;
+  }
 }

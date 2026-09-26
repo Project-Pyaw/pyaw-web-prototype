@@ -52,13 +52,13 @@ function setSnapshot(nextSnapshot: SessionSnapshot): void {
   }
 
   snapshot = nextSnapshot;
-  notifySessionListeners();
 }
 
 function replaceTokens(tokens: AuthTokens): void {
   accessToken = tokens.accessToken;
   refreshToken = tokens.refreshToken;
   setSnapshot(authenticatedSnapshot);
+  notifySessionListeners();
 }
 
 function isTerminalSessionError(error: unknown): boolean {
@@ -145,6 +145,7 @@ export function clearSession(): void {
   accessToken = undefined;
   refreshToken = undefined;
   setSnapshot(unauthenticatedSnapshot);
+  notifySessionListeners();
 }
 
 export async function logout(): Promise<void> {
@@ -201,6 +202,10 @@ async function revokeCurrentRefreshSession(): Promise<void> {
 
 export function getSessionSnapshot(): SessionSnapshot {
   return snapshot;
+}
+
+export function getCurrentAccessToken(): string | undefined {
+  return accessToken;
 }
 
 export function subscribeToSession(listener: SessionListener): () => void {

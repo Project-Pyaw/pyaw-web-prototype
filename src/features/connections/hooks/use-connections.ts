@@ -11,8 +11,13 @@ import type { ConnectionRequestDirection } from "../types";
 
 export const connectionsQueryKey = ["connections"] as const;
 
-const connectionRequestQueryKey = (direction: ConnectionRequestDirection) =>
-  [...connectionsQueryKey, "requests", direction] as const;
+const connectionRequestQueryKey = (
+  direction: ConnectionRequestDirection,
+  status?: "PENDING",
+) =>
+  status
+    ? ([...connectionsQueryKey, "requests", direction, status] as const)
+    : ([...connectionsQueryKey, "requests", direction] as const);
 
 function invalidateRequestState(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -34,11 +39,12 @@ export function useConnections(enabled: boolean) {
 export function useConnectionRequests(
   direction: ConnectionRequestDirection,
   enabled: boolean,
+  status?: "PENDING",
 ) {
   return useQuery({
     enabled,
-    queryFn: () => getConnectionRequests({ direction }),
-    queryKey: connectionRequestQueryKey(direction),
+    queryFn: () => getConnectionRequests({ direction, status }),
+    queryKey: connectionRequestQueryKey(direction, status),
   });
 }
 

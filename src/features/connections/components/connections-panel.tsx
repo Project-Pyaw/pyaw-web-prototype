@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
-import { ApiError } from "@/lib/api/api-error";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getProfileDisplayName,
   ProfileAvatar,
@@ -19,14 +19,11 @@ import type { ConnectionIdentity, ConnectionRequest } from "../types";
 
 type ConnectionsPanelProps = Readonly<{
   currentAccountId: string;
-  isOpeningConversation?: boolean;
-  onMessage?: (accountId: string) => void;
 }>;
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof ApiError
-    ? error.message
-    : "Please try again shortly.";
+  void error;
+  return "Please try again shortly.";
 }
 
 function Identity({ account }: Readonly<{ account: ConnectionIdentity }>) {
@@ -50,6 +47,28 @@ function Identity({ account }: Readonly<{ account: ConnectionIdentity }>) {
   );
 }
 
+function ConnectionRowSkeleton({
+  actions = false,
+}: Readonly<{
+  actions?: boolean;
+}>) {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex items-center justify-between gap-3 py-3"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <Skeleton className="size-12 shrink-0 rounded-full" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-28 rounded" />
+          <Skeleton className="h-3 w-20 rounded" />
+        </div>
+      </div>
+      {actions ? <Skeleton className="h-10 w-28 rounded-lg" /> : null}
+    </div>
+  );
+}
+
 function ConnectionRequestItem({
   request,
 }: Readonly<{
@@ -59,12 +78,12 @@ function ConnectionRequestItem({
   const canRespond = request.status === "PENDING";
 
   return (
-    <li className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
       <Identity account={request.counterpart} />
       {canRespond ? (
         <div className="flex gap-2 sm:shrink-0">
           <button
-            className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-10 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
             disabled={respond.isPending}
             onClick={() =>
               respond.mutate({ requestId: request.id, status: "ACCEPTED" })
@@ -74,7 +93,7 @@ function ConnectionRequestItem({
             Accept
           </button>
           <button
-            className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-10 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
             disabled={respond.isPending}
             onClick={() =>
               respond.mutate({ requestId: request.id, status: "REJECTED" })
@@ -98,17 +117,13 @@ function ConnectionRequestItem({
   );
 }
 
-export function ConnectionsPanel({
-  currentAccountId,
-  isOpeningConversation = false,
-  onMessage,
-}: ConnectionsPanelProps) {
+export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
   const [phone, setPhone] = useState("");
   const lookup = useAccountLookup();
   const sendRequest = useSendConnectionRequest();
   const connections = useConnections(true);
   const incoming = useConnectionRequests("INCOMING", true);
-  const outgoing = useConnectionRequests("OUTGOING", true);
+  const outgoing = useConnectionRequests("OUTGOING", true, "PENDING");
   const lookupAccount = lookup.data?.account;
   const isSelf = lookupAccount?.id === currentAccountId;
 
@@ -129,7 +144,7 @@ export function ConnectionsPanel({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
       <section className="space-y-4" aria-labelledby="find-people-title">
         <div>
           <h2
@@ -150,7 +165,7 @@ export function ConnectionsPanel({
             Phone number
           </label>
           <input
-            className="min-w-0 flex-1 rounded-lg border border-border bg-input px-3 py-2.5 text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
+            className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-input px-3 py-2.5 text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
             id="phone"
             onChange={(event) => setPhone(event.target.value)}
             placeholder="Phone number"
@@ -158,7 +173,7 @@ export function ConnectionsPanel({
             value={phone}
           />
           <button
-            className="rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
             disabled={!phone.trim() || lookup.isPending}
             type="submit"
           >
@@ -176,7 +191,7 @@ export function ConnectionsPanel({
           </p>
         ) : null}
         {lookupAccount ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl bg-surface-muted p-4 sm:flex-row sm:items-center sm:justify-between">
             <Identity account={lookupAccount} />
             {isSelf ? (
               <p className="text-sm text-foreground-muted">
@@ -185,7 +200,7 @@ export function ConnectionsPanel({
             ) : (
               <div className="space-y-2 sm:text-right">
                 <button
-                  className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-10 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
                   disabled={sendRequest.isPending}
                   onClick={handleSendRequest}
                   type="button"
@@ -206,7 +221,11 @@ export function ConnectionsPanel({
         ) : null}
       </section>
 
-      <section className="space-y-3" aria-labelledby="incoming-title">
+      <section
+        aria-busy={incoming.isPending}
+        className="space-y-3"
+        aria-labelledby="incoming-title"
+      >
         <h2
           id="incoming-title"
           className="text-lg font-semibold text-foreground"
@@ -214,7 +233,13 @@ export function ConnectionsPanel({
           Incoming requests
         </h2>
         {incoming.isPending ? (
-          <p className="text-sm text-foreground-muted">Loading…</p>
+          <div>
+            <span className="sr-only" role="status">
+              Loading incoming requests…
+            </span>
+            <ConnectionRowSkeleton actions />
+            <ConnectionRowSkeleton actions />
+          </div>
         ) : null}
         {incoming.isError ? (
           <p className="text-sm text-danger" role="alert">
@@ -225,7 +250,7 @@ export function ConnectionsPanel({
           <p className="text-sm text-foreground-muted">No incoming requests.</p>
         ) : null}
         {incoming.data?.items.length ? (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-border">
             {incoming.data.items.map((request) => (
               <ConnectionRequestItem key={request.id} request={request} />
             ))}
@@ -233,7 +258,11 @@ export function ConnectionsPanel({
         ) : null}
       </section>
 
-      <section className="space-y-3" aria-labelledby="outgoing-title">
+      <section
+        aria-busy={outgoing.isPending}
+        className="space-y-3"
+        aria-labelledby="outgoing-title"
+      >
         <h2
           id="outgoing-title"
           className="text-lg font-semibold text-foreground"
@@ -241,7 +270,13 @@ export function ConnectionsPanel({
           Sent requests
         </h2>
         {outgoing.isPending ? (
-          <p className="text-sm text-foreground-muted">Loading…</p>
+          <div>
+            <span className="sr-only" role="status">
+              Loading sent requests…
+            </span>
+            <ConnectionRowSkeleton />
+            <ConnectionRowSkeleton />
+          </div>
         ) : null}
         {outgoing.isError ? (
           <p className="text-sm text-danger" role="alert">
@@ -252,11 +287,11 @@ export function ConnectionsPanel({
           <p className="text-sm text-foreground-muted">No sent requests.</p>
         ) : null}
         {outgoing.data?.items.length ? (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-border">
             {outgoing.data.items.map((request) => (
               <li
                 key={request.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border p-4"
+                className="flex items-center justify-between gap-3 py-3"
               >
                 <Identity account={request.counterpart} />
                 <p className="shrink-0 text-sm text-foreground-muted">
@@ -268,7 +303,11 @@ export function ConnectionsPanel({
         ) : null}
       </section>
 
-      <section className="space-y-3" aria-labelledby="connections-title">
+      <section
+        aria-busy={connections.isPending}
+        className="space-y-3"
+        aria-labelledby="connections-title"
+      >
         <h2
           id="connections-title"
           className="text-lg font-semibold text-foreground"
@@ -276,7 +315,13 @@ export function ConnectionsPanel({
           Connections
         </h2>
         {connections.isPending ? (
-          <p className="text-sm text-foreground-muted">Loading…</p>
+          <div>
+            <span className="sr-only" role="status">
+              Loading connections…
+            </span>
+            <ConnectionRowSkeleton />
+            <ConnectionRowSkeleton />
+          </div>
         ) : null}
         {connections.isError ? (
           <p className="text-sm text-danger" role="alert">
@@ -287,23 +332,13 @@ export function ConnectionsPanel({
           <p className="text-sm text-foreground-muted">No connections yet.</p>
         ) : null}
         {connections.data?.items.length ? (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-border">
             {connections.data.items.map((connection) => (
               <li
                 key={connection.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border p-4"
+                className="flex items-center justify-between gap-3 py-3"
               >
                 <Identity account={connection.counterpart} />
-                {onMessage ? (
-                  <button
-                    className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isOpeningConversation}
-                    onClick={() => onMessage(connection.counterpart.id)}
-                    type="button"
-                  >
-                    {isOpeningConversation ? "Opening…" : "Message"}
-                  </button>
-                ) : null}
               </li>
             ))}
           </ul>

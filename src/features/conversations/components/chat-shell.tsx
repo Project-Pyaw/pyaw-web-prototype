@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { ApiError } from "@/lib/api/api-error";
+import { AppWorkspace } from "@/components/layout/app-workspace";
 import { ConnectionsPanel } from "@/features/connections/components/connections-panel";
 import {
   getProfileDisplayName,
@@ -12,10 +12,7 @@ import {
 
 import { ConversationEmptyState } from "./conversation-empty-state";
 import { ConversationSidebar } from "./conversation-sidebar";
-import {
-  useConversations,
-  useOpenDirectConversation,
-} from "../hooks/use-conversations";
+import { useConversations } from "../hooks/use-conversations";
 
 type ChatShellProps = Readonly<{
   currentAccount: Readonly<{
@@ -39,7 +36,6 @@ export function ChatShell({
   const router = useRouter();
   const [workspace, setWorkspace] = useState<Workspace>("chats");
   const conversations = useConversations(true);
-  const openDirect = useOpenDirectConversation();
   const selectedConversation = conversations.data?.pages
     .flatMap((page) => page.items)
     .find(
@@ -47,15 +43,6 @@ export function ChatShell({
         conversation.id === selectedConversationId &&
         (conversation.type === "DIRECT" || conversation.type === "SELF"),
     );
-
-  function handleMessage(accountId: string) {
-    openDirect.mutate(accountId, {
-      onSuccess: (conversation) => {
-        setWorkspace("chats");
-        router.push(`/chat/${conversation.id}`);
-      },
-    });
-  }
 
   const self = {
     avatar: currentProfile.avatar,
@@ -65,102 +52,105 @@ export function ChatShell({
   const showConversation = Boolean(selectedConversationId);
 
   return (
-    <main className="min-h-screen bg-background p-0 md:p-6">
-      <section className="mx-auto flex min-h-screen max-w-6xl overflow-hidden bg-surface md:min-h-[calc(100vh-3rem)] md:rounded-xl md:border md:border-border md:shadow-sm">
-        <div
-          className={`${
-            showConversation ? "hidden md:flex" : "flex"
-          } w-full shrink-0 flex-col md:w-80 md:border-r md:border-border`}
+    <AppWorkspace className="grid md:grid-cols-[clamp(20rem,30vw,24rem)_minmax(0,1fr)]">
+      <div
+        className={`${
+          showConversation ? "hidden md:flex" : "flex"
+        } min-h-0 w-full flex-col overflow-hidden md:border-r md:border-border`}
+      >
+        <nav
+          className="flex min-h-16 items-center gap-1 border-b border-border px-3"
+          aria-label="Primary navigation"
         >
-          <nav
-            className="flex items-center border-b border-border px-4 pt-4"
-            aria-label="Workspace"
+          <button
+            aria-current={workspace === "chats" ? "page" : undefined}
+            className={`min-h-10 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
+              workspace === "chats"
+                ? "bg-surface-muted text-primary"
+                : "text-foreground-muted hover:bg-surface-muted"
+            }`}
+            onClick={() => setWorkspace("chats")}
+            type="button"
           >
-            <button
-              aria-current={workspace === "chats" ? "page" : undefined}
-              className={`border-b-2 px-3 pb-3 text-sm font-medium ${
-                workspace === "chats"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-foreground-muted"
-              }`}
-              onClick={() => setWorkspace("chats")}
-              type="button"
-            >
-              Chats
-            </button>
-            <button
-              aria-current={workspace === "connections" ? "page" : undefined}
-              className={`border-b-2 px-3 pb-3 text-sm font-medium ${
-                workspace === "connections"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-foreground-muted"
-              }`}
-              onClick={() => setWorkspace("connections")}
-              type="button"
-            >
-              Connections
-            </button>
-            <button
-              aria-label="Profile"
-              className="ml-auto -mt-2 rounded-full outline-none focus:ring-2 focus:ring-focus/20"
-              onClick={() => router.push("/profile")}
-              type="button"
-            >
-              <ProfileAvatar
-                name={getProfileDisplayName(
+            Chats
+          </button>
+          <button
+            aria-current={workspace === "connections" ? "page" : undefined}
+            className={`min-h-10 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
+              workspace === "connections"
+                ? "bg-surface-muted text-primary"
+                : "text-foreground-muted hover:bg-surface-muted"
+            }`}
+            onClick={() => setWorkspace("connections")}
+            type="button"
+          >
+            Connections
+          </button>
+          <button
+            aria-label={`Open profile for ${getProfileDisplayName(
+              currentProfile.displayName,
+              currentAccount.username,
+            )}`}
+            className="ml-auto flex min-w-0 items-center gap-2 rounded-lg p-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+            onClick={() => router.push("/profile")}
+            type="button"
+          >
+            <span className="hidden min-w-0 xl:block">
+              <span className="block max-w-28 truncate text-sm font-medium text-foreground">
+                {getProfileDisplayName(
                   currentProfile.displayName,
                   currentAccount.username,
                 )}
-                url={currentProfile.avatar}
-              />
-            </button>
-          </nav>
-          {workspace === "chats" ? (
-            <ConversationSidebar
-              selectedConversationId={selectedConversationId}
-              self={self}
-            />
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <ConnectionsPanel
-                currentAccountId={currentAccount.id}
-                isOpeningConversation={openDirect.isPending}
-                onMessage={handleMessage}
-              />
-              {openDirect.isError ? (
-                <p className="mt-3 text-sm text-danger" role="alert">
-                  {openDirect.error instanceof ApiError &&
-                  openDirect.error.code === "DIRECT_INTERACTION_UNAVAILABLE"
-                    ? "This conversation is unavailable."
-                    : "Unable to open this conversation."}
-                </p>
+              </span>
+              {currentAccount.username ? (
+                <span className="block max-w-28 truncate text-xs text-foreground-muted">
+                  @{currentAccount.username}
+                </span>
               ) : null}
-            </div>
-          )}
-        </div>
-        {workspace === "connections" && !showConversation ? (
-          <section className="hidden flex-1 place-items-center md:grid">
-            <p className="text-sm text-foreground-muted">
-              Choose a connection to start a conversation.
-            </p>
-          </section>
-        ) : null}
-        {workspace === "chats" ? (
-          <div
-            className={`${
-              showConversation ? "flex" : "hidden md:flex"
-            } min-w-0 flex-1 flex-col`}
-          >
-            <ConversationEmptyState
-              conversation={selectedConversation}
-              currentAccountId={currentAccount.id}
-              isLoading={conversations.isPending}
-              selectedConversationId={selectedConversationId}
-              self={self}
+            </span>
+            <ProfileAvatar
+              name={getProfileDisplayName(
+                currentProfile.displayName,
+                currentAccount.username,
+              )}
+              size="sm"
+              url={currentProfile.avatar}
             />
+          </button>
+        </nav>
+        {workspace === "chats" ? (
+          <ConversationSidebar
+            selectedConversationId={selectedConversationId}
+            self={self}
+          />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <ConnectionsPanel currentAccountId={currentAccount.id} />
           </div>
-        ) : null}
-      </section>
-    </main>
+        )}
+      </div>
+      {workspace === "connections" && !showConversation ? (
+        <section className="hidden min-w-0 place-items-center md:grid">
+          <p className="text-sm text-foreground-muted">
+            Manage your connections here.
+          </p>
+        </section>
+      ) : null}
+      {workspace === "chats" ? (
+        <div
+          className={`${
+            showConversation ? "flex" : "hidden md:flex"
+          } min-h-0 min-w-0 flex-col overflow-hidden`}
+        >
+          <ConversationEmptyState
+            conversation={selectedConversation}
+            currentAccountId={currentAccount.id}
+            isLoading={conversations.isPending}
+            selectedConversationId={selectedConversationId}
+            self={self}
+          />
+        </div>
+      ) : null}
+    </AppWorkspace>
   );
 }

@@ -13,9 +13,26 @@ export type MessageHistoryItem = Readonly<{
       displayName: string | null;
     }> | null;
   }>;
+  readReceipt?: Readonly<{
+    accountId: string;
+    readAt: string;
+  }>;
 }>;
 
+export type MessageDeliveryState = "sending" | "failed";
+
+export type OptimisticMessage = Readonly<{
+  clientMessageId: string;
+  content: string;
+  conversationId: string;
+  createdAt: string;
+  deliveryState: MessageDeliveryState;
+  type: "TEXT";
+}>;
+
+export type MessageItem = MessageHistoryItem | OptimisticMessage;
+
 export type MessageHistoryPage = Readonly<{
-  items: MessageHistoryItem[];
+  items: MessageItem[];
   nextCursor: string | null;
 }>;

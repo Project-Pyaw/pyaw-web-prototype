@@ -1,6 +1,10 @@
 import { authenticatedApi } from "@/features/auth/session/session";
 
-import type { ConversationPage, OpenedConversation } from "../types";
+import type {
+  ConversationPage,
+  ConversationReadState,
+  OpenedConversation,
+} from "../types";
 
 export function getConversations(cursor?: string): Promise<ConversationPage> {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
@@ -22,4 +26,13 @@ export function openSelfConversation(): Promise<OpenedConversation> {
     "/conversations/self",
     undefined,
   );
+}
+
+export function markConversationRead(
+  conversationId: string,
+): Promise<ConversationReadState & Readonly<{ conversationId: string }>> {
+  return authenticatedApi.patch<
+    ConversationReadState & Readonly<{ conversationId: string }>,
+    undefined
+  >(`/conversations/${conversationId}/read`, undefined);
 }

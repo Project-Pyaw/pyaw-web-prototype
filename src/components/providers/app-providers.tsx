@@ -9,6 +9,7 @@ import { useSessionStatus } from "@/features/auth/session/use-session-status";
 import { connectionsQueryKey } from "@/features/connections/hooks/use-connections";
 import { conversationsQueryKey } from "@/features/conversations/hooks/use-conversations";
 import { messagesQueryKey } from "@/features/messages/hooks/use-message-history";
+import { MessagesRealtimeSync } from "@/features/messages/realtime/messages-realtime-sync";
 import { currentProfileQueryKey } from "@/features/profile/hooks/use-current-profile";
 import { createQueryClient } from "@/lib/query/query-client";
 
@@ -40,6 +41,7 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionQueryCacheBoundary>{children}</SessionQueryCacheBoundary>
+      <MessagesRealtimeSync />
     </QueryClientProvider>
   );
 }
