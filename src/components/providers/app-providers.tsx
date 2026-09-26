@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { getPublicConfig } from "@/config/env";
 import { useSessionStatus } from "@/features/auth/session/use-session-status";
+import { bootstrapSession } from "@/features/auth/session/session";
 import { connectionsQueryKey } from "@/features/connections/hooks/use-connections";
 import { conversationsQueryKey } from "@/features/conversations/hooks/use-conversations";
 import { messagesQueryKey } from "@/features/messages/hooks/use-message-history";
@@ -37,6 +38,10 @@ export function AppProviders({ children }: AppProvidersProps) {
   getPublicConfig();
 
   const [queryClient] = useState(createQueryClient);
+
+  useEffect(() => {
+    void bootstrapSession();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

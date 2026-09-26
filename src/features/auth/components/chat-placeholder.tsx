@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { useSessionStatus } from "@/features/auth/session/use-session-status";
+import { bootstrapSession } from "@/features/auth/session/session";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatShell } from "@/features/conversations/components/chat-shell";
 import { useCurrentProfile } from "@/features/profile/hooks/use-current-profile";
 
 type ChatPlaceholderProps = Readonly<{
+  initialWorkspace?: "chats" | "connections";
   selectedConversationId?: string;
 }>;
 
@@ -64,10 +66,11 @@ function ChatBootstrapSkeleton() {
 }
 
 export function ChatPlaceholder({
+  initialWorkspace,
   selectedConversationId,
 }: ChatPlaceholderProps) {
   const router = useRouter();
-  const { status } = useSessionStatus();
+  const { bootstrapError, status } = useSessionStatus();
   const profileQuery = useCurrentProfile(status === "authenticated");
 
   useEffect(() => {
@@ -75,6 +78,25 @@ export function ChatPlaceholder({
       router.replace("/login");
     }
   }, [router, status]);
+
+  if (status === "initializing") {
+    return (
+      <>
+        <ChatBootstrapSkeleton />
+        {bootstrapError ? (
+          <div className="fixed inset-x-0 bottom-6 z-10 flex justify-center px-6">
+            <button
+              className="min-h-10 rounded-lg border border-border bg-surface px-4 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+              onClick={() => void bootstrapSession()}
+              type="button"
+            >
+              Try again
+            </button>
+          </div>
+        ) : null}
+      </>
+    );
+  }
 
   if (status === "unauthenticated") {
     return <main className="min-h-[100dvh]" />;
@@ -104,6 +126,7 @@ export function ChatPlaceholder({
     <ChatShell
       currentAccount={account}
       currentProfile={profile}
+      initialWorkspace={initialWorkspace}
       selectedConversationId={selectedConversationId}
     />
   );

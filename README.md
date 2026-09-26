@@ -8,8 +8,11 @@ and authorization.
 
 1. Use Node.js 20 or newer.
 2. Run `yarn install`.
-3. Run `yarn staging` to start against STAGING locally. It loads the committed,
-   non-secret `.env.development` configuration.
+3. Run `yarn staging` to start against STAGING locally at
+   `https://localhost:3000`. It loads the committed, non-secret
+   `.env.development` configuration. Next.js generates a local self-signed
+   certificate; accept the browser warning before testing cookie-authenticated
+   flows.
 
 Only public, non-secret browser configuration belongs in `NEXT_PUBLIC_*`
 variables. Staging is the only supported environment for this initial phase.
@@ -22,30 +25,36 @@ required environment variables.
 
 ## Session security
 
-Access and refresh tokens are held only in browser memory. They are never
-written to browser storage, URLs, or readable cookies. The current backend
-accepts refresh tokens in a request body and does not provide an HttpOnly
-cookie-based web refresh session, so a full browser reload or a separate tab
-starts unauthenticated.
+The access token is held only in browser memory. It is never written to
+browser storage, URLs, or readable cookies. The refresh credential is an
+HttpOnly browser-managed cookie for Web authentication and is never exposed to
+application JavaScript.
 
 ### Persistent-session backend handoff
 
-STAGING was checked on 2026-09-26. Its refresh preflight does not return
-`Access-Control-Allow-Credentials`, and the supplied backend contract has no
-cookie handling:
+The supplied OpenAPI contract defines the Web authentication flow:
 
-- `POST /auth/otp/verify` returns both tokens in JSON.
-- `POST /auth/refresh` requires `{ "refreshToken": "..." }` in JSON and
-  returns a rotated token pair in JSON.
-- `POST /auth/logout` requires Bearer access authentication and the same JSON
-  refresh-token body.
+- `POST /auth/otp/verify` with `transport: "WEB"` returns an access token and
+  establishes the HttpOnly refresh session.
+- `POST /auth/refresh` sends the browser-managed refresh cookie, rotates it,
+  and returns a replacement access token.
+- `POST /auth/logout` requires the Bearer access token and browser credentials
+  and revokes the current refresh session.
 
-To safely support browser session restoration, the backend must establish a
-refresh session with `Set-Cookie` during OTP verification, rotate that cookie
-on `POST /auth/refresh`, and clear it on logout. The browser-facing refresh
-and logout endpoints must not require a JavaScript-readable refresh token.
-They must also enable credentialed CORS for an explicit Web origin (not a
-wildcard), including `Access-Control-Allow-Credentials: true`.
+STAGING was checked on 2026-09-26. It recognizes the browser-auth Origin
+policy, but its refresh preflight does not return
+`Access-Control-Allow-Credentials`; credentialed browser requests therefore
+remain blocked until the deployment enables credentialed CORS for the intended
+Web origin.
+
+For local Web authentication against STAGING, configure these Railway
+environment variables exactly:
+
+```ini
+CORS_ORIGINS=https://localhost:3000
+WEB_AUTH_ORIGINS=https://localhost:3000
+WEB_AUTH_SAME_SITE=none
+```
 
 Cookie attributes remain backend-owned: use `HttpOnly` and `Secure`; choose
 `SameSite` from the deployed Web/API site relationship, with strict Origin or
@@ -55,8 +64,8 @@ calls refresh with `credentials: "include"`, keeps only the returned access
 token in memory, and preserves the requested protected route. No frontend
 storage workaround is used before then.
 
-Phone OTP request and verification use public API calls directly so responses
-containing tokens are never retained in a TanStack Query cache.
+Phone OTP request and verification use public API calls directly so access
+tokens are never retained in a TanStack Query cache.
 
 The authenticated current-user profile is TanStack Query server state. It is
 evicted when the in-memory session becomes unauthenticated; signed avatar URLs

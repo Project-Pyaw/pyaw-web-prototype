@@ -9,7 +9,7 @@ type ProfileAvatarProps = Readonly<{
 }>;
 
 const avatarSizeClassNames = {
-  header: "size-11 text-sm",
+  header: "size-10 text-sm",
   lg: "size-24 text-3xl sm:size-28",
   md: "size-12 text-sm",
   sm: "size-8 text-xs",
@@ -46,7 +46,7 @@ export function ProfileAvatar({ name, size = "md", url }: ProfileAvatarProps) {
       // eslint-disable-next-line @next/next/no-img-element
       <img
         alt={`${name} avatar`}
-        className={`${sizeClassName} aspect-square shrink-0 rounded-full border border-border object-cover`}
+        className={`${sizeClassName} aspect-square shrink-0 rounded-full border border-primary/20 object-cover`}
         onError={() => setFailedToLoad(true)}
         src={url}
       />
@@ -55,7 +55,7 @@ export function ProfileAvatar({ name, size = "md", url }: ProfileAvatarProps) {
 
   return (
     <div
-      className={`grid ${sizeClassName} aspect-square shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-avatar font-semibold text-primary`}
+      className={`grid ${sizeClassName} aspect-square shrink-0 place-items-center overflow-hidden rounded-full border border-primary/20 bg-avatar font-semibold text-primary`}
     >
       {initials}
     </div>

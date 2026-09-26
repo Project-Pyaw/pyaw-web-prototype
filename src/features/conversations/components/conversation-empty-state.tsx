@@ -56,17 +56,20 @@ export function ConversationEmptyState({
   const presence = useCounterpartPresence(
     isSelf ? undefined : conversation?.counterpart?.accountId,
   );
+  const lastSeen =
+    presence?.status === "OFFLINE" && presence.lastSeenAt
+      ? formatLastSeen(presence.lastSeenAt)
+      : null;
   const secondaryText = isSelf
     ? "Notes to yourself"
     : typing.isCounterpartTyping
       ? "typing…"
       : presence?.status === "ONLINE"
         ? "Online"
-        : presence?.status === "OFFLINE" && presence.lastSeenAt
-          ? (formatLastSeen(presence.lastSeenAt) ??
-            (conversation?.counterpart?.username
-              ? `@${conversation.counterpart.username}`
-              : ""))
+        : presence?.status === "OFFLINE"
+          ? lastSeen
+            ? `Offline · ${lastSeen}`
+            : "Offline"
           : conversation?.counterpart?.username
             ? `@${conversation.counterpart.username}`
             : "";
@@ -101,32 +104,107 @@ export function ConversationEmptyState({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
-      <header className="flex min-h-[4.5rem] items-center gap-3 border-b border-border px-3 py-3 sm:px-5">
-        <button
-          aria-label="Back to chats"
-          className="min-h-10 rounded-lg px-2 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 md:hidden"
-          onClick={() => router.push("/chat")}
-          type="button"
-        >
-          Back
-        </button>
-        {!isSelf ? (
-          <ProfileAvatar
-            name={identity}
-            size="header"
-            url={conversation.counterpart?.profile?.avatar ?? null}
-          />
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold leading-5 text-foreground">
-            {identity}
-          </h2>
-          <p
-            aria-live="polite"
-            className="min-h-5 truncate text-sm text-foreground-muted"
+      <header className="flex min-h-[5.5rem] items-center justify-between gap-3 border-b border-border px-5 py-3 sm:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            aria-label="Back to chats"
+            className="min-h-10 rounded-lg px-2 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 md:hidden"
+            onClick={() => router.push("/chat")}
+            type="button"
           >
-            {secondaryText}
-          </p>
+            Back
+          </button>
+          {!isSelf ? (
+            <ProfileAvatar
+              name={identity}
+              size="header"
+              url={conversation.counterpart?.profile?.avatar ?? null}
+            />
+          ) : null}
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-bold leading-5 text-foreground">
+              {identity}
+            </h2>
+            <p
+              aria-live="polite"
+              className="mt-1 flex min-h-5 items-center gap-1.5 truncate text-sm text-foreground-muted"
+            >
+              {!isSelf && presence ? (
+                <span
+                  aria-hidden="true"
+                  className={`size-2 shrink-0 rounded-full ${
+                    presence.status === "ONLINE"
+                      ? "bg-emerald-500"
+                      : "bg-foreground-muted"
+                  }`}
+                />
+              ) : null}
+              <span className="truncate">{secondaryText}</span>
+            </p>
+          </div>
+        </div>
+        <div
+          aria-hidden="true"
+          className="hidden items-center gap-3 text-foreground-muted sm:flex"
+        >
+          <svg className="size-5" fill="none" viewBox="0 0 24 24">
+            <circle
+              cx="11"
+              cy="11"
+              r="6.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            <path
+              d="m16 16 4 4"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="1.8"
+            />
+          </svg>
+          <svg className="size-5" fill="none" viewBox="0 0 24 24">
+            <path
+              d="M5 4h3l2 5-2.5 1.5a12 12 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2C10.3 21 3 13.7 3 6a2 2 0 0 1 2-2Z"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.8"
+            />
+          </svg>
+          <svg className="size-5" fill="none" viewBox="0 0 24 24">
+            <rect
+              height="12"
+              rx="2"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              width="13"
+              x="3"
+              y="6"
+            />
+            <path
+              d="m16 10 4-2v8l-4-2"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.8"
+            />
+          </svg>
+          <svg className="size-5" fill="none" viewBox="0 0 24 24">
+            <circle
+              cx="12"
+              cy="12"
+              r="8"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            <path
+              d="M12 11v5m0-8h.01"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="1.8"
+            />
+          </svg>
+          <span className="text-xl leading-none">⋮</span>
         </div>
       </header>
       <MessageHistory

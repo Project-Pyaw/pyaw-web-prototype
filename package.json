@@ -7,8 +7,8 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "next dev",
-    "staging": "next dev",
+    "dev": "next dev --experimental-https",
+    "staging": "next dev --experimental-https",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

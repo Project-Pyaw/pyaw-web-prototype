@@ -33,6 +33,41 @@ function formatTimestamp(value: string): string {
   }).format(new Date(value));
 }
 
+function formatMessageDay(value: string): string | null {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const today = new Date();
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  ).getTime();
+  const startOfMessageDay = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  ).getTime();
+  const dayDifference = Math.round(
+    (startOfToday - startOfMessageDay) / 86_400_000,
+  );
+  if (dayDifference === 0) {
+    return "Today";
+  }
+
+  if (dayDifference === 1) {
+    return "Yesterday";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
 function isGroupEnd(
   message: MessageHistoryItem | OptimisticMessage,
   nextMessage: MessageHistoryItem | OptimisticMessage | undefined,
@@ -49,6 +84,8 @@ function isGroupEnd(
   return (
     !nextMessage ||
     outgoing !== nextOutgoing ||
+    new Date(nextMessage.createdAt).toDateString() !==
+      new Date(message.createdAt).toDateString() ||
     Date.parse(nextMessage.createdAt) - Date.parse(message.createdAt) >
       MESSAGE_GROUP_GAP_MS
   );
@@ -62,7 +99,7 @@ function MessageHistorySkeleton({
   return (
     <div
       aria-busy="true"
-      className="mx-auto flex min-h-full w-full max-w-4xl flex-col justify-end gap-2"
+      className="mx-auto flex min-h-full w-full max-w-5xl flex-col justify-end gap-2"
     >
       <span className="sr-only" role="status">
         Loading messages…
@@ -267,7 +304,7 @@ export function MessageHistory({
     <div className="flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 md:px-6"
+        className="min-h-0 flex-1 overflow-y-auto bg-surface-muted px-5 py-6 sm:px-8"
         onScroll={handleScroll}
       >
         {history.isPending ? (
@@ -276,7 +313,7 @@ export function MessageHistory({
           />
         ) : null}
         <div
-          className={`mx-auto flex min-h-full w-full max-w-4xl flex-col gap-1 ${
+          className={`mx-auto flex min-h-full w-full max-w-5xl flex-col gap-1 ${
             isEmpty ? "justify-center" : "justify-end"
           } ${history.isPending ? "hidden" : ""}`}
         >
@@ -322,14 +359,33 @@ export function MessageHistory({
               messages[index + 1],
               currentAccountId,
             );
+            const previousMessage = messages[index - 1];
+            const showDateSeparator =
+              !previousMessage ||
+              new Date(previousMessage.createdAt).toDateString() !==
+                new Date(message.createdAt).toDateString();
+            const dayLabel = showDateSeparator
+              ? formatMessageDay(message.createdAt)
+              : null;
+            const showIncomingAvatar =
+              !outgoing &&
+              conversationType === "DIRECT" &&
+              groupEnd &&
+              counterpart;
+            const showIncomingTail =
+              !outgoing && conversationType === "DIRECT" && groupEnd;
 
             const messageBody = (
-              <div className="min-w-0 max-w-[85%] sm:max-w-[min(34rem,70vw)]">
+              <div className="min-w-0 max-w-[85%] sm:max-w-[min(36rem,70vw)]">
                 <div
-                  className={`rounded-2xl px-3 py-2 text-sm leading-5 ${
+                  className={`rounded-2xl px-3.5 py-2 text-sm leading-5 shadow-sm ${
                     outgoing
-                      ? "bg-message-outgoing text-message-outgoing-foreground"
-                      : "bg-message-incoming text-message-incoming-foreground"
+                      ? "rounded-tr-md bg-message-outgoing text-message-outgoing-foreground"
+                      : "border border-border/70 bg-message-incoming text-message-incoming-foreground"
+                  } ${
+                    showIncomingTail
+                      ? "relative rounded-bl-md after:absolute after:-bottom-px after:-left-1 after:size-3 after:bg-message-incoming after:[clip-path:polygon(100%_0,100%_100%,0_100%)]"
+                      : ""
                   }`}
                 >
                   <p className="whitespace-pre-wrap break-words">
@@ -337,7 +393,7 @@ export function MessageHistory({
                   </p>
                 </div>
                 <div
-                  className={`mt-1 flex items-center gap-1.5 text-xs text-foreground-muted ${
+                  className={`mt-1 flex items-center gap-1.5 px-1 text-[11px] text-foreground-muted ${
                     outgoing ? "justify-end" : "justify-start"
                   }`}
                 >
@@ -366,29 +422,37 @@ export function MessageHistory({
             );
 
             return (
-              <article
-                key={optimistic ? message.clientMessageId : message.id}
-                className={`flex ${outgoing ? "justify-end" : "justify-start"} ${groupEnd ? "mb-2" : ""}`}
-              >
-                {!outgoing && conversationType === "DIRECT" ? (
-                  <div className="flex max-w-full items-end gap-2">
-                    {groupEnd && counterpart ? (
-                      <span aria-hidden="true">
-                        <ProfileAvatar
-                          name={counterpart.name}
-                          size="sm"
-                          url={counterpart.avatar}
-                        />
-                      </span>
-                    ) : (
-                      <span aria-hidden="true" className="size-8 shrink-0" />
-                    )}
-                    {messageBody}
+              <div key={optimistic ? message.clientMessageId : message.id}>
+                {dayLabel ? (
+                  <div className="my-4 flex justify-center">
+                    <span className="rounded-full bg-surface-muted px-3 py-1 text-[11px] font-semibold tracking-wide text-foreground-muted shadow-sm">
+                      {dayLabel}
+                    </span>
                   </div>
-                ) : (
-                  messageBody
-                )}
-              </article>
+                ) : null}
+                <article
+                  className={`flex ${outgoing ? "justify-end" : "justify-start"} ${groupEnd ? "mb-3" : ""}`}
+                >
+                  {!outgoing && conversationType === "DIRECT" ? (
+                    <div className="flex max-w-full items-end gap-2">
+                      {showIncomingAvatar ? (
+                        <span aria-hidden="true">
+                          <ProfileAvatar
+                            name={counterpart.name}
+                            size="sm"
+                            url={counterpart.avatar}
+                          />
+                        </span>
+                      ) : (
+                        <span aria-hidden="true" className="size-8 shrink-0" />
+                      )}
+                      {messageBody}
+                    </div>
+                  ) : (
+                    messageBody
+                  )}
+                </article>
+              </div>
             );
           })}
         </div>

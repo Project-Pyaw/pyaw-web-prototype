@@ -16,7 +16,6 @@ type AuthenticatedAccount = Readonly<{
 export type VerifyPhoneOtpResponse = Readonly<{
   account: AuthenticatedAccount;
   accessToken: string;
-  refreshToken: string;
 }>;
 
 type OtpRequestPayload = Readonly<{
@@ -28,15 +27,11 @@ type OtpRequestPayload = Readonly<{
 type OtpVerifyPayload = OtpRequestPayload &
   Readonly<{
     otp: string;
+    transport: "WEB";
   }>;
 
-function isTokenPair(value: VerifyPhoneOtpResponse): boolean {
-  return (
-    typeof value.accessToken === "string" &&
-    value.accessToken.length > 0 &&
-    typeof value.refreshToken === "string" &&
-    value.refreshToken.length > 0
-  );
+function hasAccessToken(value: VerifyPhoneOtpResponse): boolean {
+  return typeof value.accessToken === "string" && value.accessToken.length > 0;
 }
 
 function toOtpPayload(identifier: string): OtpRequestPayload {
@@ -63,11 +58,15 @@ export async function verifyPhoneOtp(
 ): Promise<VerifyPhoneOtpResponse> {
   const response = await api.post<VerifyPhoneOtpResponse, OtpVerifyPayload>(
     "/auth/otp/verify",
-    { ...toOtpPayload(identifier), otp },
-    { authentication: "none", retryOnAccessTokenExpired: false },
+    { ...toOtpPayload(identifier), otp, transport: "WEB" },
+    {
+      authentication: "none",
+      credentials: "include",
+      retryOnAccessTokenExpired: false,
+    },
   );
 
-  if (!isTokenPair(response)) {
+  if (!hasAccessToken(response)) {
     throw new ApiError({
       code: "INVALID_RESPONSE",
       message: "The service returned an invalid response.",

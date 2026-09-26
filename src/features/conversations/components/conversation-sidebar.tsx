@@ -79,9 +79,9 @@ function ConversationRow({
   return (
     <button
       aria-current={selected ? "page" : undefined}
-      className={`flex min-h-[4.5rem] w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
+      className={`relative flex min-h-[4.5rem] w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
         selected
-          ? "bg-surface-muted shadow-[inset_3px_0_0_var(--pyaw-primary)]"
+          ? "bg-surface-muted shadow-sm before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-primary"
           : "hover:bg-surface-muted"
       }`}
       onClick={() => router.push(`/chat/${conversation.id}`)}
@@ -95,7 +95,9 @@ function ConversationRow({
       />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="truncate font-medium text-foreground">
+          <span
+            className={`truncate ${unreadCount > 0 ? "font-bold" : "font-semibold"} text-foreground`}
+          >
             {identity}
           </span>
           <span className="ml-auto flex shrink-0 flex-col items-end gap-1">
@@ -118,7 +120,9 @@ function ConversationRow({
           </span>
         </span>
         {preview ? (
-          <span className="block truncate text-sm text-foreground-muted">
+          <span
+            className={`block truncate text-sm ${unreadCount > 0 ? "font-semibold text-foreground" : "text-foreground-muted"}`}
+          >
             {preview}
           </span>
         ) : null}
@@ -133,6 +137,7 @@ export function ConversationSidebar({
 }: ConversationSidebarProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "unread">("all");
   const conversationsQuery = useConversations(true);
   const openSelf = useOpenSelfConversation();
   const items =
@@ -161,6 +166,11 @@ export function ConversationSidebar({
           .includes(normalizedSearch);
       })
     : directConversations;
+  const unreadConversations = visibleConversations.filter(
+    (conversation) => conversation.readState.unreadCount > 0,
+  );
+  const filteredConversations =
+    filter === "unread" ? unreadConversations : visibleConversations;
 
   function handleOpenSelf() {
     openSelf.mutate(undefined, {
@@ -170,10 +180,18 @@ export function ConversationSidebar({
 
   return (
     <aside className="flex min-h-0 flex-1 flex-col bg-surface">
-      <div className="space-y-3 border-b border-border px-4 pb-3 pt-4">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">
-          Chats
-        </h1>
+      <div className="space-y-3 px-5 pb-4 pt-5">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            Chats
+          </h1>
+          <span
+            aria-hidden="true"
+            className="text-2xl font-light text-foreground-muted"
+          >
+            +
+          </span>
+        </div>
         <div className="relative">
           <label className="sr-only" htmlFor="conversation-search">
             Search chats
@@ -199,7 +217,7 @@ export function ConversationSidebar({
             />
           </svg>
           <input
-            className="min-h-10 w-full rounded-lg border border-border bg-input py-2 pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
+            className="min-h-[3.25rem] w-full rounded-xl border border-border bg-input py-2 pl-10 pr-9 text-base text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
             id="conversation-search"
             onChange={(event) => setSearchQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -224,12 +242,36 @@ export function ConversationSidebar({
             </button>
           ) : null}
         </div>
+        <div
+          className="flex items-center gap-2"
+          role="group"
+          aria-label="Conversation filters"
+        >
+          <button
+            aria-pressed={filter === "all"}
+            className={`min-h-8 rounded-full px-3 text-sm font-semibold transition-colors ${filter === "all" ? "bg-primary/5 text-primary shadow-sm" : "text-foreground-muted hover:bg-surface-muted"}`}
+            onClick={() => setFilter("all")}
+            type="button"
+          >
+            All
+          </button>
+          <button
+            aria-pressed={filter === "unread"}
+            className={`min-h-8 rounded-full px-3 text-sm font-medium transition-colors ${filter === "unread" ? "bg-primary/5 text-primary shadow-sm" : "text-foreground-muted hover:bg-surface-muted"}`}
+            onClick={() => setFilter("unread")}
+            type="button"
+          >
+            Unread
+            {unreadConversations.length > 0 ? (
+              <span className="ml-1.5 inline-grid size-5 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+                {unreadConversations.length}
+              </span>
+            ) : null}
+          </button>
+        </div>
       </div>
       {notesMatches ? (
-        <section
-          className="border-b border-border px-3 py-3"
-          aria-label="Notes"
-        >
+        <section className="px-3 py-3" aria-label="Notes">
           {notes ? (
             <ConversationRow
               conversation={notes}
@@ -263,9 +305,16 @@ export function ConversationSidebar({
         aria-busy={conversationsQuery.isPending}
         className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2"
       >
-        <h2 className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
-          {normalizedSearch ? "Search results" : "Recent conversations"}
-        </h2>
+        <div className="flex items-center justify-between px-3 pb-2 pt-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-foreground-muted">
+            {normalizedSearch ? "Search results" : "Recent conversations"}
+          </h2>
+          {!normalizedSearch ? (
+            <span className="text-xs font-medium text-foreground-muted">
+              {directConversations.length} chats
+            </span>
+          ) : null}
+        </div>
         {conversationsQuery.isPending ? (
           <>
             <span className="sr-only" role="status">
@@ -292,7 +341,7 @@ export function ConversationSidebar({
         ) : null}
         {!conversationsQuery.isPending &&
         !conversationsQuery.isError &&
-        visibleConversations.length === 0 ? (
+        filteredConversations.length === 0 ? (
           <p className="px-3 py-4 text-sm text-foreground-muted">
             {normalizedSearch
               ? conversationsQuery.hasNextPage
@@ -301,7 +350,7 @@ export function ConversationSidebar({
               : "No conversations yet."}
           </p>
         ) : null}
-        {visibleConversations.map((conversation) => (
+        {filteredConversations.map((conversation) => (
           <ConversationRow
             key={conversation.id}
             conversation={conversation}

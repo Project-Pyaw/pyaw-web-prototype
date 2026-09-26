@@ -77,18 +77,18 @@ export function MessageComposer({
   return (
     <form
       ref={formRef}
-      className="chat-composer shrink-0 border-t border-border bg-surface px-3 pt-3 sm:px-4 md:px-6"
+      className="chat-composer shrink-0 border-t border-border bg-surface px-5 pt-4 sm:px-8"
       onSubmit={handleSubmit}
     >
       <label className="sr-only" htmlFor="message-content">
         Message
       </label>
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-3">
         <textarea
           ref={textareaRef}
           aria-describedby={error ? "message-composer-error" : undefined}
           aria-label="Message"
-          className="min-h-11 flex-1 resize-none rounded-xl border border-border bg-input px-3 py-2 text-sm leading-5 text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
+          className="min-h-12 flex-1 resize-none rounded-full border border-border bg-input px-5 py-3 text-base leading-5 text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
           id="message-content"
           maxLength={MAX_TEXT_MESSAGE_LENGTH + 1}
           onChange={(event) => {
@@ -99,16 +99,30 @@ export function MessageComposer({
             setError(null);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Write a message"
+          placeholder="Write a message…"
           rows={1}
           value={content}
         />
         <button
-          className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+          aria-label="Send message"
+          className="grid size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm shadow-primary/25 transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
           disabled={!canSend}
           type="submit"
         >
-          Send
+          <svg
+            aria-hidden="true"
+            className="size-5 translate-x-0.5"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="m4 4 16 8-16 8 3.5-8L4 4Z"
+              fill="currentColor"
+              stroke="currentColor"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+            />
+          </svg>
         </button>
       </div>
       {error ? (

@@ -7,9 +7,9 @@ type AppWorkspaceProps = Readonly<{
 
 export function AppWorkspace({ children, className = "" }: AppWorkspaceProps) {
   return (
-    <main className="h-screen h-[100dvh] overflow-hidden bg-background md:p-4 lg:p-6">
+    <main className="h-screen h-[100dvh] overflow-hidden bg-background">
       <section
-        className={`mx-auto h-full max-w-[90rem] overflow-hidden bg-surface md:h-[calc(100dvh-2rem)] md:rounded-2xl md:border md:border-border lg:h-[calc(100dvh-3rem)] ${className}`}
+        className={`mx-auto h-full max-w-none overflow-hidden bg-surface ${className}`}
       >
         {children}
       </section>

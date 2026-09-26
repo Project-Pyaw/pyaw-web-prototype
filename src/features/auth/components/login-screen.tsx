@@ -3,8 +3,12 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { requestPhoneOtp, verifyPhoneOtp } from "@/features/auth/api/auth-api";
-import { beginSession } from "@/features/auth/session/session";
+import {
+  beginSession,
+  bootstrapSession,
+} from "@/features/auth/session/session";
 import { useSessionStatus } from "@/features/auth/session/use-session-status";
 import { ApiError } from "@/lib/api/api-error";
 
@@ -38,7 +42,7 @@ function maskPhoneNumber(phone: string): string {
 
 export function LoginScreen() {
   const router = useRouter();
-  const { status } = useSessionStatus();
+  const { bootstrapError, status } = useSessionStatus();
   const otpInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<LoginStep>("phone");
   const [phone, setPhone] = useState("");
@@ -61,6 +65,33 @@ export function LoginScreen() {
   }, [step]);
 
   const isPending = isRequesting || isVerifying;
+
+  if (status === "initializing") {
+    return (
+      <main className="grid min-h-screen place-items-center bg-background p-6">
+        <section
+          aria-busy="true"
+          className="w-full max-w-md space-y-5 rounded-xl border border-border bg-surface p-8 shadow-sm"
+        >
+          <span className="sr-only" role="status">
+            Loading your account…
+          </span>
+          <Skeleton className="h-4 w-12 rounded" />
+          <Skeleton className="h-8 w-3/4 rounded" />
+          <Skeleton className="h-5 w-full rounded" />
+          {bootstrapError ? (
+            <button
+              className="min-h-10 rounded-lg border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+              onClick={() => void bootstrapSession()}
+              type="button"
+            >
+              Try again
+            </button>
+          ) : null}
+        </section>
+      </main>
+    );
+  }
 
   async function requestOtpForPhone(identifier: string) {
     setError(undefined);
@@ -103,10 +134,7 @@ export function LoginScreen() {
 
     try {
       const response = await verifyPhoneOtp(requestedPhone, otp);
-      beginSession({
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-      });
+      beginSession({ accessToken: response.accessToken });
       setOtp("");
       router.replace("/chat");
     } catch (verifyError) {

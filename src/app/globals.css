@@ -2,23 +2,27 @@
 
 :root {
   /* Mirrors Pyaw mobile's light theme and chat treatment. */
-  --pyaw-background: #ffffff;
+  --pyaw-background: #faf8ff;
   --pyaw-surface: #ffffff;
-  --pyaw-surface-muted: #f5f5f5;
-  --pyaw-foreground: #000000;
-  --pyaw-foreground-muted: #757575;
-  --pyaw-border: #eeeeee;
-  --pyaw-primary: #e60012;
+  --pyaw-surface-muted: #f7f7ff;
+  --pyaw-foreground: #172038;
+  --pyaw-foreground-muted: #7c6d70;
+  --pyaw-border: #e7e8f6;
+  --pyaw-primary: #e11d48;
   --pyaw-primary-foreground: #ffffff;
-  --pyaw-input: #ffffff;
-  --pyaw-focus: #e60012;
-  --pyaw-danger: #e60012;
-  --pyaw-message-outgoing: #e31b23;
+  --pyaw-input: #f4f3ff;
+  --pyaw-focus: #e11d48;
+  --pyaw-danger: #ba1a1a;
+  --pyaw-message-outgoing: #e11d48;
   --pyaw-message-outgoing-foreground: #ffffff;
-  --pyaw-message-incoming: #f0f0f0;
-  --pyaw-message-incoming-foreground: #000000;
-  --pyaw-avatar: #fbeaec;
-  --pyaw-skeleton: #eeeeee;
+  --pyaw-message-incoming: #ffffff;
+  --pyaw-message-incoming-foreground: #172038;
+  --pyaw-avatar: #ffe4e6;
+  --pyaw-skeleton: #e7e8f6;
+}
+
+html {
+  font-size: 15px;
 }
 
 @theme inline {
@@ -52,7 +56,14 @@ body {
   overflow-x: hidden;
   background: var(--pyaw-background);
   color: var(--pyaw-foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 button,
@@ -63,6 +74,16 @@ textarea {
 
 .chat-composer {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: #e2e7ff;
 }
 
 .skeleton {

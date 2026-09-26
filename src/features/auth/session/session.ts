@@ -1,16 +1,16 @@
 import "client-only";
 
-import { ApiClient, api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/api-error";
+import { api, ApiClient } from "@/lib/api/client";
 
-export type AuthTokens = Readonly<{
+export type AccessTokenSession = Readonly<{
   accessToken: string;
-  refreshToken: string;
 }>;
 
-type SessionStatus = "authenticated" | "unauthenticated";
+type SessionStatus = "initializing" | "authenticated" | "unauthenticated";
 
 export type SessionSnapshot = Readonly<{
+  bootstrapError: boolean;
   status: SessionStatus;
 }>;
 
@@ -21,25 +21,32 @@ type RefreshOperation = Readonly<{
   sessionVersion: number;
 }>;
 
-const TERMINAL_REFRESH_ERROR_CODES = new Set([
-  "REFRESH_TOKEN_EXPIRED",
-  "REFRESH_TOKEN_INVALID",
-  "REFRESH_TOKEN_REUSED",
-  "REFRESH_TOKEN_REVOKED",
-]);
+type BootstrapOperation = Readonly<{
+  promise: Promise<void>;
+}>;
 
+const initializingSnapshot: SessionSnapshot = {
+  bootstrapError: false,
+  status: "initializing",
+};
 const unauthenticatedSnapshot: SessionSnapshot = {
+  bootstrapError: false,
   status: "unauthenticated",
 };
+const bootstrapRetrySnapshot: SessionSnapshot = {
+  bootstrapError: true,
+  status: "initializing",
+};
 const authenticatedSnapshot: SessionSnapshot = {
+  bootstrapError: false,
   status: "authenticated",
 };
 
 let accessToken: string | undefined;
-let refreshToken: string | undefined;
+let bootstrapOperation: BootstrapOperation | undefined;
 let refreshOperation: RefreshOperation | undefined;
 let sessionVersion = 0;
-let snapshot = unauthenticatedSnapshot;
+let snapshot = initializingSnapshot;
 const listeners = new Set<SessionListener>();
 
 function notifySessionListeners(): void {
@@ -47,24 +54,25 @@ function notifySessionListeners(): void {
 }
 
 function setSnapshot(nextSnapshot: SessionSnapshot): void {
-  if (snapshot.status === nextSnapshot.status) {
+  if (
+    snapshot.status === nextSnapshot.status &&
+    snapshot.bootstrapError === nextSnapshot.bootstrapError
+  ) {
     return;
   }
 
   snapshot = nextSnapshot;
 }
 
-function replaceTokens(tokens: AuthTokens): void {
-  accessToken = tokens.accessToken;
-  refreshToken = tokens.refreshToken;
+function replaceAccessToken(session: AccessTokenSession): void {
+  accessToken = session.accessToken;
   setSnapshot(authenticatedSnapshot);
   notifySessionListeners();
 }
 
-function isTerminalSessionError(error: unknown): boolean {
+function isTerminalRefreshError(error: unknown): boolean {
   return (
-    error instanceof ApiError &&
-    (error.status === 401 || TERMINAL_REFRESH_ERROR_CODES.has(error.code))
+    error instanceof ApiError && (error.status === 400 || error.status === 401)
   );
 }
 
@@ -76,32 +84,46 @@ function isAccessTokenExpiredError(error: unknown): boolean {
   );
 }
 
-async function rotateTokens(refreshSessionVersion: number): Promise<boolean> {
-  const currentRefreshToken = refreshToken;
+function isAccessTokenSession(value: AccessTokenSession): boolean {
+  return typeof value.accessToken === "string" && value.accessToken.length > 0;
+}
 
-  if (!currentRefreshToken) {
-    if (refreshSessionVersion === sessionVersion) {
-      clearSession();
-    }
+async function requestCookieRefresh(): Promise<AccessTokenSession> {
+  const session = await api.post<AccessTokenSession, undefined>(
+    "/auth/refresh",
+    undefined,
+    {
+      authentication: "none",
+      credentials: "include",
+      retryOnAccessTokenExpired: false,
+    },
+  );
 
-    return false;
+  if (!isAccessTokenSession(session)) {
+    throw new ApiError({
+      code: "INVALID_RESPONSE",
+      message: "The service returned an invalid response.",
+      status: 200,
+    });
   }
 
+  return session;
+}
+
+async function rotateAccessToken(
+  refreshSessionVersion: number,
+): Promise<boolean> {
   try {
-    const tokens = await api.post<AuthTokens, { refreshToken: string }>(
-      "/auth/refresh",
-      { refreshToken: currentRefreshToken },
-      { authentication: "none", retryOnAccessTokenExpired: false },
-    );
+    const session = await requestCookieRefresh();
 
     if (refreshSessionVersion !== sessionVersion) {
       return false;
     }
 
-    replaceTokens(tokens);
+    replaceAccessToken(session);
     return true;
   } catch (error) {
-    if (isTerminalSessionError(error)) {
+    if (isTerminalRefreshError(error)) {
       if (refreshSessionVersion === sessionVersion) {
         clearSession();
       }
@@ -116,7 +138,7 @@ async function rotateTokens(refreshSessionVersion: number): Promise<boolean> {
 async function refreshAccessToken(): Promise<boolean> {
   if (!refreshOperation || refreshOperation.sessionVersion !== sessionVersion) {
     const operationSessionVersion = sessionVersion;
-    const promise = rotateTokens(operationSessionVersion).finally(() => {
+    const promise = rotateAccessToken(operationSessionVersion).finally(() => {
       if (refreshOperation?.sessionVersion === operationSessionVersion) {
         refreshOperation = undefined;
       }
@@ -135,69 +157,79 @@ export const authenticatedApi = new ApiClient({
   refreshAccessToken,
 });
 
-export function beginSession(tokens: AuthTokens): void {
+export function beginSession(session: AccessTokenSession): void {
   sessionVersion += 1;
-  replaceTokens(tokens);
+  replaceAccessToken(session);
 }
 
 export function clearSession(): void {
   sessionVersion += 1;
   accessToken = undefined;
-  refreshToken = undefined;
   setSnapshot(unauthenticatedSnapshot);
   notifySessionListeners();
 }
 
-export async function logout(): Promise<void> {
-  if (!refreshToken) {
-    clearSession();
-    return;
-  }
-
-  try {
-    await revokeCurrentRefreshSession();
-  } catch (error) {
-    if (isAccessTokenExpiredError(error)) {
-      const refreshed = await refreshAccessToken();
-
-      if (!refreshed) {
-        return;
-      }
+export function bootstrapSession(): Promise<void> {
+  if (!bootstrapOperation) {
+    const promise = (async () => {
+      const bootstrapSessionVersion = sessionVersion;
+      setSnapshot(initializingSnapshot);
+      notifySessionListeners();
 
       try {
-        await revokeCurrentRefreshSession();
-      } catch (retryError) {
-        if (isTerminalSessionError(retryError)) {
+        const session = await requestCookieRefresh();
+        if (bootstrapSessionVersion !== sessionVersion) {
+          return;
+        }
+
+        beginSession(session);
+      } catch (error) {
+        if (bootstrapSessionVersion !== sessionVersion) {
+          return;
+        }
+
+        if (isTerminalRefreshError(error)) {
           clearSession();
           return;
         }
 
-        throw retryError;
+        setSnapshot(bootstrapRetrySnapshot);
+        notifySessionListeners();
       }
-    } else if (isTerminalSessionError(error)) {
-      clearSession();
-      return;
-    } else {
-      throw error;
-    }
+    })().finally(() => {
+      bootstrapOperation = undefined;
+    });
+
+    bootstrapOperation = { promise };
   }
 
-  clearSession();
+  return bootstrapOperation.promise;
 }
 
-async function revokeCurrentRefreshSession(): Promise<void> {
-  const currentRefreshToken = refreshToken;
+export async function logout(): Promise<void> {
+  try {
+    await authenticatedApi.post<void, undefined>("/auth/logout", undefined, {
+      credentials: "include",
+      retryOnAccessTokenExpired: false,
+    });
+  } catch (error) {
+    if (isAccessTokenExpiredError(error)) {
+      const refreshed = await refreshAccessToken();
 
-  if (!currentRefreshToken) {
+      if (refreshed) {
+        await authenticatedApi.post<void, undefined>(
+          "/auth/logout",
+          undefined,
+          {
+            credentials: "include",
+            retryOnAccessTokenExpired: false,
+          },
+        );
+      }
+    }
+  } finally {
     clearSession();
-    return;
   }
-
-  await authenticatedApi.post<void, { refreshToken: string }>(
-    "/auth/logout",
-    { refreshToken: currentRefreshToken },
-    { retryOnAccessTokenExpired: false },
-  );
 }
 
 export function getSessionSnapshot(): SessionSnapshot {

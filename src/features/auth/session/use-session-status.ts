@@ -9,7 +9,8 @@ import {
 } from "./session";
 
 const serverSnapshot: SessionSnapshot = {
-  status: "unauthenticated",
+  bootstrapError: false,
+  status: "initializing",
 };
 
 export function useSessionStatus(): SessionSnapshot {
