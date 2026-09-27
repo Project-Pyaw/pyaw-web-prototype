@@ -7,10 +7,10 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "next dev --experimental-https",
+    "dev": "next dev --port 4000",
     "staging": "next dev --experimental-https",
-    "build": "next build",
-    "start": "next start",
+    "build": "node --env-file=.env.development ./node_modules/next/dist/bin/next build",
+    "start": "node --env-file=.env.development ./node_modules/next/dist/bin/next start --port 4000",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",

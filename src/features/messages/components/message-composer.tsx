@@ -105,7 +105,7 @@ export function MessageComposer({
         />
         <button
           aria-label="Send message"
-          className="grid size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm shadow-primary/25 transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+          className="grid size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
           disabled={!canSend}
           type="submit"
         >

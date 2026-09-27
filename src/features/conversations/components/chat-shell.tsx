@@ -114,7 +114,7 @@ export function ChatShell({
           }
         }}
       />
-      <div className="grid min-h-0 flex-1 md:grid-cols-[clamp(20rem,30vw,25rem)_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 md:grid-cols-[clamp(18rem,28vw,22rem)_minmax(0,1fr)]">
         <div
           className={`${
             showConversation ? "hidden md:flex" : "flex"

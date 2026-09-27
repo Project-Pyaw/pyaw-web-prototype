@@ -20,14 +20,104 @@ function ProfileWorkspace({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 function ProfileHeader({
+  avatar,
+  identity,
   onNavigate,
-}: Readonly<{ onNavigate: (section: AppNavigationSection) => void }>) {
+  username,
+}: Readonly<{
+  avatar: string | null;
+  identity: string;
+  onNavigate: (section: AppNavigationSection) => void;
+  username: string | null;
+}>) {
   return (
     <AppHeader
       activeSection="profile"
+      endContent={
+        <div className="flex items-center gap-3">
+          <span className="hidden text-sm font-medium text-foreground lg:block">
+            {username ? `@${username}` : identity}
+          </span>
+          <span className="relative">
+            <ProfileAvatar name={identity} size="sm" url={avatar} />
+            <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-surface bg-emerald-500" />
+          </span>
+        </div>
+      }
       onBrandClick={() => onNavigate("chats")}
       onNavigate={onNavigate}
     />
+  );
+}
+
+function ProfileNavigationItem({
+  active = false,
+  children,
+  icon,
+}: Readonly<{ active?: boolean; children: ReactNode; icon: ReactNode }>) {
+  return (
+    <div
+      className={`flex min-h-12 items-center gap-3 rounded-full px-4 text-sm font-medium ${
+        active ? "bg-primary/15 text-primary" : "text-foreground-muted"
+      }`}
+    >
+      <span aria-hidden="true" className="grid size-5 place-items-center">
+        {icon}
+      </span>
+      {children}
+      {active ? (
+        <span
+          aria-hidden="true"
+          className="ml-auto size-1.5 rounded-full bg-primary"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ProfileField({
+  children,
+  label,
+}: Readonly<{ children: string; label: string }>) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-foreground">
+        {label}
+      </span>
+      <input
+        className="h-12 w-full rounded-2xl border border-border bg-surface px-4 text-base text-foreground outline-none"
+        readOnly
+        type="text"
+        value={children}
+      />
+    </label>
+  );
+}
+
+function SettingRow({
+  description,
+  title,
+}: Readonly<{ description: string; title: string }>) {
+  return (
+    <div className="flex items-center gap-4 px-5 py-5 sm:px-6">
+      <span
+        aria-hidden="true"
+        className="grid size-11 shrink-0 place-items-center rounded-full bg-primary/10 text-xl text-primary"
+      >
+        ♧
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+        <p className="mt-0.5 text-sm text-foreground-muted">{description}</p>
+      </div>
+      <span
+        aria-label={`${title} enabled`}
+        className="ml-auto inline-flex h-7 w-12 shrink-0 items-center justify-end rounded-full bg-primary p-1"
+        role="img"
+      >
+        <span className="size-5 rounded-full bg-white" />
+      </span>
+    </div>
   );
 }
 
@@ -82,7 +172,12 @@ export function ProfileScreen() {
   if (profileQuery.isPending) {
     return (
       <ProfileWorkspace>
-        <ProfileHeader onNavigate={navigateFromProfile} />
+        <ProfileHeader
+          avatar={null}
+          identity="Pyaw member"
+          onNavigate={navigateFromProfile}
+          username={null}
+        />
         <div aria-busy="true" className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-5 py-10 sm:px-10 sm:py-12">
             <span className="sr-only" role="status">
@@ -105,7 +200,12 @@ export function ProfileScreen() {
   if (profileQuery.isError || !profileQuery.data) {
     return (
       <ProfileWorkspace>
-        <ProfileHeader onNavigate={navigateFromProfile} />
+        <ProfileHeader
+          avatar={null}
+          identity="Pyaw member"
+          onNavigate={navigateFromProfile}
+          username={null}
+        />
         <div className="grid min-h-0 flex-1 place-items-center overflow-y-auto p-5 sm:p-10">
           <section className="w-full max-w-2xl space-y-4">
             <h2 className="text-xl font-semibold text-foreground">
@@ -132,99 +232,171 @@ export function ProfileScreen() {
 
   return (
     <ProfileWorkspace>
-      <ProfileHeader onNavigate={navigateFromProfile} />
-      <div className="min-h-0 flex-1 overflow-y-auto bg-background">
-        <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-10">
-          <div className="mb-6">
-            <p className="text-sm font-medium text-primary">Your account</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              Settings &amp; Profile
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-foreground-muted">
-              Your public profile and account details in one place.
-            </p>
-          </div>
-          <section
-            aria-labelledby="profile-details-title"
-            className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)]"
-          >
-            <div className="flex flex-col gap-5 border-b border-border p-5 sm:flex-row sm:items-center sm:p-6">
-              <ProfileAvatar name={identity} size="lg" url={profile.avatar} />
+      <ProfileHeader
+        avatar={profile.avatar}
+        identity={identity}
+        onNavigate={navigateFromProfile}
+        username={account.username}
+      />
+      <div className="grid min-h-0 flex-1 bg-background lg:grid-cols-[22rem_minmax(0,1fr)]">
+        <aside className="hidden min-h-0 border-r border-border bg-surface p-5 lg:block">
+          <div className="rounded-2xl bg-input p-4">
+            <div className="flex items-center gap-3">
+              <span className="relative">
+                <ProfileAvatar name={identity} size="md" url={profile.avatar} />
+                <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-input bg-emerald-500" />
+              </span>
               <div className="min-w-0">
-                <p
-                  className="text-sm font-semibold text-foreground"
-                  id="profile-details-title"
-                >
-                  Profile
-                </p>
-                <h3 className="mt-1 break-words text-xl font-semibold tracking-tight text-foreground">
+                <p className="truncate text-base font-semibold text-foreground">
                   {identity}
-                </h3>
+                </p>
                 {account.username ? (
-                  <p className="mt-1 truncate text-sm text-foreground-muted">
+                  <p className="truncate text-sm text-foreground-muted">
                     @{account.username}
                   </p>
                 ) : null}
-                <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                <p className="mt-0.5 text-xs font-medium text-foreground-muted">
+                  <span className="text-emerald-500">●</span>{" "}
+                  {account.status === "ACTIVE"
+                    ? "Online • Available"
+                    : account.status}
+                </p>
+              </div>
+            </div>
+          </div>
+          <nav aria-label="Profile navigation" className="mt-5 space-y-2">
+            <ProfileNavigationItem active icon="●">
+              Profile
+            </ProfileNavigationItem>
+            <ProfileNavigationItem icon="⚙">Settings</ProfileNavigationItem>
+            <ProfileNavigationItem icon="⊘">
+              Blocked Users
+            </ProfileNavigationItem>
+            <ProfileNavigationItem icon="ⓘ">About</ProfileNavigationItem>
+          </nav>
+          <div className="mt-5 border-t border-border pt-4">
+            <ProfileNavigationItem icon="?">
+              Help &amp; Support
+            </ProfileNavigationItem>
+          </div>
+        </aside>
+        <div className="min-h-0 overflow-y-auto">
+          <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                  Profile
+                </h2>
+                <p className="mt-1 text-base text-foreground-muted">
+                  Manage your public information, avatar, and contact
+                  credentials.
+                </p>
+              </div>
+              <button
+                aria-label="Saving profile changes is not available yet"
+                className="min-h-12 cursor-not-allowed rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground"
+                disabled
+                type="button"
+              >
+                Save Changes
+              </button>
+            </div>
+            <section
+              aria-labelledby="profile-details-title"
+              className="mt-8 rounded-2xl border border-border bg-surface p-5 sm:p-7"
+            >
+              <div className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-center">
+                <span className="relative w-fit">
+                  <ProfileAvatar
+                    name={identity}
+                    size="lg"
+                    url={profile.avatar}
+                  />
                   <span
                     aria-hidden="true"
-                    className="size-1.5 rounded-full bg-emerald-500"
-                  />
-                  {account.status === "ACTIVE"
-                    ? "Active account"
-                    : account.status}
+                    className="absolute bottom-0 right-0 grid size-10 place-items-center rounded-full border-4 border-surface bg-primary text-lg text-primary-foreground"
+                  >
+                    ⌾
+                  </span>
                 </span>
+                <div>
+                  <h3
+                    className="text-lg font-semibold text-foreground"
+                    id="profile-details-title"
+                  >
+                    Profile Photo
+                  </h3>
+                  <p className="mt-1 text-sm text-foreground-muted">
+                    Your avatar is provided by your Pyaw profile.
+                  </p>
+                  <div className="mt-4 flex items-center gap-5">
+                    <span className="rounded-full bg-input px-4 py-2 text-sm font-medium text-foreground">
+                      Upload New
+                    </span>
+                    <span className="text-sm font-medium text-foreground-muted">
+                      Remove
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <dl className="grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-              <div className="min-w-0 p-5 sm:p-6">
-                <dt className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-                  Display name
-                </dt>
-                <dd className="mt-2 truncate text-sm font-medium text-foreground">
-                  {identity}
-                </dd>
-              </div>
-              <div className="min-w-0 p-5 sm:p-6">
-                <dt className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-                  Username
-                </dt>
-                <dd className="mt-2 truncate text-sm font-medium text-foreground">
+              <div className="mt-7 grid gap-5 sm:grid-cols-2">
+                <ProfileField label="Display Name">{identity}</ProfileField>
+                <ProfileField label="Username">
                   {account.username ? `@${account.username}` : "Not set"}
-                </dd>
+                </ProfileField>
               </div>
-            </dl>
-            <div className="border-t border-border p-5 sm:p-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-                About
-              </h3>
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
-                {profile.bio?.trim() || "No profile description yet."}
+              <label className="mt-5 block">
+                <span className="mb-2 block text-sm font-medium text-foreground">
+                  About / Bio
+                </span>
+                <textarea
+                  className="min-h-24 w-full resize-none rounded-2xl border border-border bg-surface px-4 py-3 text-base leading-6 text-foreground outline-none"
+                  readOnly
+                  value={profile.bio?.trim() || "No profile description yet."}
+                />
+                <span className="mt-2 block text-right text-xs font-medium text-foreground-muted">
+                  {profile.bio?.trim().length ?? 0} characters
+                </span>
+              </label>
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                <ProfileField label="Phone Number">
+                  {account.phone}
+                </ProfileField>
+                <div className="rounded-2xl border border-border bg-input px-4 py-3">
+                  <p className="text-sm font-medium text-foreground">
+                    Account status
+                  </p>
+                  <p className="mt-1 text-sm text-emerald-700">
+                    {account.status === "ACTIVE"
+                      ? "Verified active account"
+                      : account.status}
+                  </p>
+                </div>
+              </div>
+            </section>
+            <section aria-labelledby="settings-title" className="mt-10">
+              <h2
+                className="text-3xl font-semibold tracking-tight text-foreground"
+                id="settings-title"
+              >
+                Settings
+              </h2>
+              <p className="mt-1 text-base text-foreground-muted">
+                Control notification behaviors, security parameters, and
+                conversation privacy.
               </p>
-            </div>
-          </section>
-          <section
-            className="mt-6 rounded-2xl border border-border bg-surface p-5 sm:p-6"
-            aria-labelledby="account-details-title"
-          >
-            <h3
-              className="text-lg font-semibold text-foreground"
-              id="account-details-title"
-            >
-              Account details
-            </h3>
-            <p className="mt-1 text-sm text-foreground-muted">
-              Contact information associated with this account.
-            </p>
-            <div className="mt-5 rounded-xl bg-surface-muted px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-                Phone number
-              </p>
-              <p className="mt-1 text-sm font-medium text-foreground">
-                {account.phone}
-              </p>
-            </div>
-          </section>
+              <div className="mt-7 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+                <SettingRow
+                  description="Play soft chime on new incoming direct messages"
+                  title="Sound Alerts"
+                />
+                <SettingRow
+                  description="Display sender avatars and message snippets in popups"
+                  title="Message Previews"
+                />
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </ProfileWorkspace>

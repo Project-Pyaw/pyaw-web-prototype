@@ -378,7 +378,7 @@ export function MessageHistory({
             const messageBody = (
               <div className="min-w-0 max-w-[85%] sm:max-w-[min(36rem,70vw)]">
                 <div
-                  className={`rounded-2xl px-3.5 py-2 text-sm leading-5 shadow-sm ${
+                  className={`rounded-2xl px-3.5 py-2 text-sm leading-5 ${
                     outgoing
                       ? "rounded-tr-md bg-message-outgoing text-message-outgoing-foreground"
                       : "border border-border/70 bg-message-incoming text-message-incoming-foreground"
@@ -425,7 +425,7 @@ export function MessageHistory({
               <div key={optimistic ? message.clientMessageId : message.id}>
                 {dayLabel ? (
                   <div className="my-4 flex justify-center">
-                    <span className="rounded-full bg-surface-muted px-3 py-1 text-[11px] font-semibold tracking-wide text-foreground-muted shadow-sm">
+                    <span className="rounded-full bg-surface-muted px-3 py-1 text-[11px] font-semibold tracking-wide text-foreground-muted">
                       {dayLabel}
                     </span>
                   </div>

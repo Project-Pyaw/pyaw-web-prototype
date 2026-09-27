@@ -45,7 +45,7 @@ export function AppHeader({
         onClick={onBrandClick}
         type="button"
       >
-        <span className="grid size-9 place-items-center rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-sm shadow-primary/20">
+        <span className="grid size-9 place-items-center rounded-xl bg-primary text-lg font-bold text-primary-foreground">
           P
         </span>
         <span className="text-xl font-bold tracking-tight text-foreground">

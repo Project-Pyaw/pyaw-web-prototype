@@ -8,15 +8,36 @@ and authorization.
 
 1. Use Node.js 20 or newer.
 2. Run `yarn install`.
-3. Run `yarn staging` to start against STAGING locally at
-   `https://localhost:3000`. It loads the committed, non-secret
-   `.env.development` configuration. Next.js generates a local self-signed
-   certificate; accept the browser warning before testing cookie-authenticated
+3. Run `yarn dev` (or `yarn dev:frontend`) to start the frontend at
+   `http://localhost:4000`. It loads the local development configuration from
+   `.env.development`:
+
+   ```ini
+   NEXT_PUBLIC_APP_ENV=development
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api/v1
+   NEXT_PUBLIC_SOCKET_URL=http://localhost:3000
+   ```
+
+4. Start the Pyaw backend separately at `http://localhost:3000`. Its local
+   CORS allowlist must include `http://localhost:4000` with credentials
+   enabled. For the backend's local environment, use exact origins rather than
+   a wildcard, for example:
+
+   ```ini
+   CORS_ORIGINS=http://localhost:4000
+   WEB_AUTH_ORIGINS=http://localhost:4000
+   ```
+
+   The frontend continues to send credentialed authentication requests, so the
+   HttpOnly refresh-session cookie is included in local refresh and logout
    flows.
 
+Use `yarn start` to serve a production build locally on `http://localhost:4000`.
+
 Only public, non-secret browser configuration belongs in `NEXT_PUBLIC_*`
-variables. Staging is the only supported environment for this initial phase.
-Deployments must set the same variables in their own environment configuration.
+variables. STAGING remains separately configured with the HTTPS Railway values
+in `.env.example`; deployments must set those values in their own environment
+configuration.
 
 ## Verification
 

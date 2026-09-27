@@ -7,6 +7,7 @@ import { useSessionStatus } from "@/features/auth/session/use-session-status";
 import { bootstrapSession } from "@/features/auth/session/session";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatShell } from "@/features/conversations/components/chat-shell";
+import { UsernameSetupScreen } from "@/features/profile/components/username-setup-screen";
 import { useCurrentProfile } from "@/features/profile/hooks/use-current-profile";
 
 type ChatPlaceholderProps = Readonly<{
@@ -16,10 +17,10 @@ type ChatPlaceholderProps = Readonly<{
 
 function ChatBootstrapSkeleton() {
   return (
-    <main className="h-screen h-[100dvh] overflow-hidden bg-background md:p-4 lg:p-6">
+    <main className="h-screen h-[100dvh] overflow-hidden bg-background">
       <section
         aria-busy="true"
-        className="mx-auto grid h-full max-w-[90rem] overflow-hidden bg-surface md:h-[calc(100dvh-2rem)] md:grid-cols-[clamp(20rem,30vw,24rem)_minmax(0,1fr)] md:rounded-2xl md:border md:border-border lg:h-[calc(100dvh-3rem)]"
+        className="mx-auto grid h-full max-w-none overflow-hidden bg-surface md:grid-cols-[clamp(18rem,28vw,22rem)_minmax(0,1fr)]"
       >
         <span className="sr-only" role="status">
           Loading your account…
@@ -86,7 +87,7 @@ export function ChatPlaceholder({
         {bootstrapError ? (
           <div className="fixed inset-x-0 bottom-6 z-10 flex justify-center px-6">
             <button
-              className="min-h-10 rounded-lg border border-border bg-surface px-4 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+              className="min-h-10 rounded-lg border border-border bg-surface px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
               onClick={() => void bootstrapSession()}
               type="button"
             >
@@ -109,7 +110,7 @@ export function ChatPlaceholder({
   if (profileQuery.isError || !profileQuery.data) {
     return (
       <main className="grid min-h-[100dvh] place-items-center bg-background p-6">
-        <section className="max-w-md space-y-3 rounded-xl border border-border bg-surface p-8 shadow-sm">
+        <section className="max-w-md space-y-3 rounded-xl border border-border bg-surface p-8">
           <h1 className="text-xl font-semibold text-foreground">
             Your account is unavailable.
           </h1>
@@ -122,6 +123,21 @@ export function ChatPlaceholder({
   }
 
   const { account, profile } = profileQuery.data;
+
+  const needsDisplayName = !profile.displayName?.trim();
+  const needsUsername = account.username === null;
+
+  if (needsDisplayName || needsUsername) {
+    return (
+      <UsernameSetupScreen
+        currentDisplayName={profile.displayName}
+        currentUsername={account.username}
+        needsDisplayName={needsDisplayName}
+        needsUsername={needsUsername}
+      />
+    );
+  }
+
   return (
     <ChatShell
       currentAccount={account}

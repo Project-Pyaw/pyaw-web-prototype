@@ -81,7 +81,7 @@ function ConversationRow({
       aria-current={selected ? "page" : undefined}
       className={`relative flex min-h-[4.5rem] w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
         selected
-          ? "bg-surface-muted shadow-sm before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-primary"
+          ? "bg-surface-muted before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-primary"
           : "hover:bg-surface-muted"
       }`}
       onClick={() => router.push(`/chat/${conversation.id}`)}
@@ -249,7 +249,7 @@ export function ConversationSidebar({
         >
           <button
             aria-pressed={filter === "all"}
-            className={`min-h-8 rounded-full px-3 text-sm font-semibold transition-colors ${filter === "all" ? "bg-primary/5 text-primary shadow-sm" : "text-foreground-muted hover:bg-surface-muted"}`}
+            className={`min-h-8 rounded-full px-3 text-sm font-semibold transition-colors ${filter === "all" ? "bg-primary/5 text-primary" : "text-foreground-muted hover:bg-surface-muted"}`}
             onClick={() => setFilter("all")}
             type="button"
           >
@@ -257,7 +257,7 @@ export function ConversationSidebar({
           </button>
           <button
             aria-pressed={filter === "unread"}
-            className={`min-h-8 rounded-full px-3 text-sm font-medium transition-colors ${filter === "unread" ? "bg-primary/5 text-primary shadow-sm" : "text-foreground-muted hover:bg-surface-muted"}`}
+            className={`min-h-8 rounded-full px-3 text-sm font-medium transition-colors ${filter === "unread" ? "bg-primary/5 text-primary" : "text-foreground-muted hover:bg-surface-muted"}`}
             onClick={() => setFilter("unread")}
             type="button"
           >
