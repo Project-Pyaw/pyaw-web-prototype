@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileAvatar } from "@/features/profile/components/profile-avatar";
 
+import { MessageImageAttachment } from "./message-image-attachment";
+import { MessageReactions } from "./message-reactions";
+import { MessageReplyPreview } from "./message-reply-preview";
 import type { MessageHistoryItem, OptimisticMessage } from "../types";
 import { useMessageHistory } from "../hooks/use-message-history";
+import { useMessageReactions } from "../hooks/use-message-reactions";
 
 const MESSAGE_GROUP_GAP_MS = 5 * 60 * 1_000;
 
@@ -19,6 +23,7 @@ type MessageHistoryProps = Readonly<{
   }>;
   currentAccountId: string;
   onReadIncoming: (messageId: string) => void;
+  onReply: (message: MessageHistoryItem) => void;
   onRetry: (message: OptimisticMessage) => void;
 }>;
 
@@ -172,9 +177,11 @@ export function MessageHistory({
   counterpart,
   currentAccountId,
   onReadIncoming,
+  onReply,
   onRetry,
 }: MessageHistoryProps) {
   const history = useMessageHistory(conversationId, true);
+  const messageReactions = useMessageReactions(conversationId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previousScrollRef = useRef<{
     height: number;
@@ -183,11 +190,23 @@ export function MessageHistory({
   const loadedConversationIdRef = useRef<string | null>(null);
   const shouldFollowLatestRef = useRef(true);
   const onReadIncomingRef = useRef(onReadIncoming);
+  const messageElementRefs = useRef(new Map<string, HTMLElement>());
+  const highlightTimeoutRef = useRef<number | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<
+    string | null
+  >(null);
   const messages =
     history.data?.pages
       .toReversed()
       .flatMap((page) => page.items.toReversed())
-      .filter((message) => message.type === "TEXT" && message.content) ?? [];
+      .filter(
+        (message) =>
+          message.type === "TEXT" &&
+          (Boolean(message.content) ||
+            message.attachments.some(
+              (attachment) => attachment.kind === "IMAGE",
+            )),
+      ) ?? [];
   const isEmpty =
     !history.isPending && !history.isError && messages.length === 0;
   const latestIncomingMessage = messages.findLast(
@@ -267,6 +286,15 @@ export function MessageHistory({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [latestIncomingMessage]);
 
+  useEffect(
+    () => () => {
+      if (highlightTimeoutRef.current !== null) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   function handleScroll() {
     const container = scrollRef.current;
 
@@ -298,6 +326,26 @@ export function MessageHistory({
     }
 
     history.fetchNextPage();
+  }
+
+  function scrollToMessage(messageId: string) {
+    const messageElement = messageElementRefs.current.get(messageId);
+
+    if (!messageElement) {
+      return;
+    }
+
+    messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+
+    if (highlightTimeoutRef.current !== null) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedMessageId(null);
+      highlightTimeoutRef.current = null;
+    }, 1_200);
   }
 
   return (
@@ -372,25 +420,56 @@ export function MessageHistory({
               conversationType === "DIRECT" &&
               groupEnd &&
               counterpart;
+            const imageAttachments = message.attachments.filter(
+              (attachment) => attachment.kind === "IMAGE",
+            );
+            const replyTo = message.replyTo;
+            const isImageOnlyMessage =
+              imageAttachments.length > 0 && !message.content && !replyTo;
             const showIncomingTail =
-              !outgoing && conversationType === "DIRECT" && groupEnd;
+              !isImageOnlyMessage &&
+              !outgoing &&
+              conversationType === "DIRECT" &&
+              groupEnd;
 
             const messageBody = (
               <div className="min-w-0 max-w-[85%] sm:max-w-[min(36rem,70vw)]">
                 <div
-                  className={`rounded-2xl px-3.5 py-2 text-sm leading-5 ${
-                    outgoing
-                      ? "rounded-tr-md bg-message-outgoing text-message-outgoing-foreground"
-                      : "border border-border/70 bg-message-incoming text-message-incoming-foreground"
+                  className={`text-sm leading-5 ${
+                    isImageOnlyMessage
+                      ? "p-0"
+                      : outgoing
+                        ? "rounded-2xl rounded-tr-md bg-message-outgoing px-3.5 py-2 text-message-outgoing-foreground"
+                        : "rounded-2xl border border-border/70 bg-message-incoming px-3.5 py-2 text-message-incoming-foreground"
                   } ${
                     showIncomingTail
                       ? "relative rounded-bl-md after:absolute after:-bottom-px after:-left-1 after:size-3 after:bg-message-incoming after:[clip-path:polygon(100%_0,100%_100%,0_100%)]"
                       : ""
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words">
-                    {message.content}
-                  </p>
+                  {replyTo ? (
+                    <div className="mb-2">
+                      <MessageReplyPreview
+                        onClick={() => scrollToMessage(replyTo.messageId)}
+                        replyTo={replyTo}
+                      />
+                    </div>
+                  ) : null}
+                  {imageAttachments.map((attachment) => (
+                    <div className="mb-2 last:mb-0" key={attachment.id}>
+                      <MessageImageAttachment
+                        attachment={attachment}
+                        localPreviewUrl={
+                          optimistic ? message.localImagePreviewUrl : undefined
+                        }
+                      />
+                    </div>
+                  ))}
+                  {message.content ? (
+                    <p className="whitespace-pre-wrap break-words">
+                      {message.content}
+                    </p>
+                  ) : null}
                 </div>
                 <div
                   className={`mt-1 flex items-center gap-1.5 px-1 text-[11px] text-foreground-muted ${
@@ -406,7 +485,24 @@ export function MessageHistory({
                   {deliveryState === "failed" ? (
                     <span className="font-medium text-danger">Failed</span>
                   ) : null}
+                  {!optimistic ? (
+                    <button
+                      className="font-medium text-foreground-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40"
+                      onClick={() => onReply(message)}
+                      type="button"
+                    >
+                      Reply
+                    </button>
+                  ) : null}
                 </div>
+                {!optimistic && message.deletedAt === null ? (
+                  <MessageReactions
+                    isPending={messageReactions.isPending}
+                    message={message}
+                    onToggle={messageReactions.toggleReaction}
+                    outgoing={outgoing}
+                  />
+                ) : null}
                 {optimistic && message.deliveryState === "failed" ? (
                   <div className="mt-1 flex items-center justify-end gap-2 text-xs text-danger">
                     <button
@@ -431,7 +527,23 @@ export function MessageHistory({
                   </div>
                 ) : null}
                 <article
-                  className={`flex ${outgoing ? "justify-end" : "justify-start"} ${groupEnd ? "mb-3" : ""}`}
+                  className={`group flex transition-shadow ${outgoing ? "justify-end" : "justify-start"} ${groupEnd ? "mb-3" : ""} ${
+                    !optimistic && highlightedMessageId === message.id
+                      ? "rounded-xl ring-2 ring-focus/40 ring-offset-2 ring-offset-surface-muted"
+                      : ""
+                  }`}
+                  ref={(element) => {
+                    if (optimistic) {
+                      return;
+                    }
+
+                    if (element) {
+                      messageElementRefs.current.set(message.id, element);
+                      return;
+                    }
+
+                    messageElementRefs.current.delete(message.id);
+                  }}
                 >
                   {!outgoing && conversationType === "DIRECT" ? (
                     <div className="flex max-w-full items-end gap-2">

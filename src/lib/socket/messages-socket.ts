@@ -13,13 +13,18 @@ export type MessagesSocketConnectionState =
 
 type ConnectionStateListener = () => void;
 type ConversationReadListener = (payload: unknown) => void;
+type MessageDeletedListener = (payload: unknown) => void;
 type MessageNewListener = (payload: unknown) => void;
+type MessageReactionsUpdatedListener = (payload: unknown) => void;
 type PresenceUpdateListener = (payload: unknown) => void;
 type TypingUpdateListener = (payload: unknown) => void;
 
 const connectionStateListeners = new Set<ConnectionStateListener>();
 const conversationReadListeners = new Set<ConversationReadListener>();
+const messageDeletedListeners = new Set<MessageDeletedListener>();
 const messageNewListeners = new Set<MessageNewListener>();
+const messageReactionsUpdatedListeners =
+  new Set<MessageReactionsUpdatedListener>();
 const presenceUpdateListeners = new Set<PresenceUpdateListener>();
 const typingUpdateListeners = new Set<TypingUpdateListener>();
 
@@ -67,6 +72,12 @@ function createMessagesSocket(): Socket {
   });
   socket.on("message:new", (payload: unknown) => {
     messageNewListeners.forEach((listener) => listener(payload));
+  });
+  socket.on("message:deleted", (payload: unknown) => {
+    messageDeletedListeners.forEach((listener) => listener(payload));
+  });
+  socket.on("message:reactions-updated", (payload: unknown) => {
+    messageReactionsUpdatedListeners.forEach((listener) => listener(payload));
   });
   socket.on("presence:update", (payload: unknown) => {
     presenceUpdateListeners.forEach((listener) => listener(payload));
@@ -146,6 +157,22 @@ export function subscribeToMessageNew(
   messageNewListeners.add(listener);
 
   return () => messageNewListeners.delete(listener);
+}
+
+export function subscribeToMessageDeleted(
+  listener: MessageDeletedListener,
+): () => void {
+  messageDeletedListeners.add(listener);
+
+  return () => messageDeletedListeners.delete(listener);
+}
+
+export function subscribeToMessageReactionsUpdated(
+  listener: MessageReactionsUpdatedListener,
+): () => void {
+  messageReactionsUpdatedListeners.add(listener);
+
+  return () => messageReactionsUpdatedListeners.delete(listener);
 }
 
 export function subscribeToPresenceUpdate(

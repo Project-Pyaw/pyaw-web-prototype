@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   getProfileDisplayName,
@@ -11,6 +12,12 @@ import { MessageHistory } from "@/features/messages/components/message-history";
 import { useConversationTyping } from "@/features/messages/hooks/use-conversation-typing";
 import { useCounterpartPresence } from "@/features/messages/hooks/use-counterpart-presence";
 import { useSendMessage } from "@/features/messages/hooks/use-send-message";
+import { mapMessageDeletedEvent } from "@/features/messages/realtime/message-deleted";
+import type {
+  MessageHistoryItem,
+  ReplyMessagePreview,
+} from "@/features/messages/types";
+import { subscribeToMessageDeleted } from "@/lib/socket/messages-socket";
 
 import { formatLastSeen } from "../conversation-presentation";
 import { useMarkConversationRead } from "../hooks/use-mark-conversation-read";
@@ -37,6 +44,8 @@ export function ConversationEmptyState({
   self,
 }: ConversationEmptyStateProps) {
   const router = useRouter();
+  const [replyTo, setReplyTo] = useState<ReplyMessagePreview | null>(null);
+  const conversationId = conversation?.id;
   const isSelf = conversation?.type === "SELF";
   const identity = conversation
     ? isSelf
@@ -73,6 +82,46 @@ export function ConversationEmptyState({
           : conversation?.counterpart?.username
             ? `@${conversation.counterpart.username}`
             : "";
+
+  useEffect(() => {
+    setReplyTo(null);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversationId) {
+      return;
+    }
+
+    return subscribeToMessageDeleted((payload) => {
+      const deletedMessage = mapMessageDeletedEvent(payload);
+
+      if (!deletedMessage || deletedMessage.conversationId !== conversationId) {
+        return;
+      }
+
+      setReplyTo((currentReplyTo) =>
+        currentReplyTo?.messageId === deletedMessage.id
+          ? {
+              ...currentReplyTo,
+              content: null,
+              deleted: true,
+              hasAttachments: false,
+            }
+          : currentReplyTo,
+      );
+    });
+  }, [conversationId]);
+
+  function selectReplyTarget(message: MessageHistoryItem) {
+    setReplyTo({
+      messageId: message.id,
+      type: message.type,
+      sender: message.sender,
+      content: message.content,
+      hasAttachments: message.attachments.length > 0,
+      deleted: message.deletedAt !== null,
+    });
+  }
 
   if (!conversation || !identity) {
     return (
@@ -223,10 +272,13 @@ export function ConversationEmptyState({
           markConversationRead.markRead(conversation.id, messageId)
         }
         onRetry={messageSending.retry}
+        onReply={selectReplyTarget}
       />
       <MessageComposer
         onContentChange={typing.onDraftChange}
+        onCancelReply={() => setReplyTo(null)}
         onSend={messageSending.send}
+        replyTo={replyTo}
       />
     </section>
   );

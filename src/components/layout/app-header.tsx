@@ -24,7 +24,7 @@ const navigationItems: ReadonlyArray<
   }>
 > = [
   { label: "Chats", section: "chats" },
-  { label: "Connections", section: "connections" },
+  { label: "People", section: "connections" },
   {
     className: "hidden lg:flex",
     label: "Settings & Profile",

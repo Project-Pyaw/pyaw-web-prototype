@@ -4,17 +4,25 @@ import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { useSessionStatus } from "@/features/auth/session/use-session-status";
+import { useCurrentProfile } from "@/features/profile/hooks/use-current-profile";
 import { conversationsQueryKey } from "@/features/conversations/hooks/use-conversations";
 import {
   getMessagesSocketConnectionState,
   startMessagesSocket,
   stopMessagesSocket,
   subscribeToMessageNew,
+  subscribeToMessageDeleted,
+  subscribeToMessageReactionsUpdated,
   subscribeToConversationRead,
   subscribeToMessagesSocketConnectionState,
 } from "@/lib/socket/messages-socket";
 
-import { applyReadReceipt, mergePersistedMessage } from "../message-cache";
+import {
+  applyReadReceipt,
+  applyMessageReactionUpdate,
+  mergePersistedMessage,
+  redactReplyPreviews,
+} from "../message-cache";
 import type { MessageHistoryPage } from "../types";
 import {
   messageHistoryQueryKey,
@@ -22,10 +30,14 @@ import {
 } from "../hooks/use-message-history";
 import { mapMessageNewEvent } from "./message-new";
 import { mapConversationReadEvent } from "./conversation-read";
+import { mapMessageDeletedEvent } from "./message-deleted";
+import { mapMessageReactionsUpdatedEvent } from "./message-reactions-updated";
 
 export function MessagesRealtimeSync() {
   const { status } = useSessionStatus();
   const queryClient = useQueryClient();
+  const currentProfile = useCurrentProfile(status === "authenticated");
+  const currentAccountId = currentProfile.data?.account.id;
 
   useEffect(() => {
     if (status !== "authenticated") {
@@ -75,6 +87,44 @@ export function MessagesRealtimeSync() {
         queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
       },
     );
+    const unsubscribeMessageDeleted = subscribeToMessageDeleted((payload) => {
+      const deletedMessage = mapMessageDeletedEvent(payload);
+
+      if (!deletedMessage) {
+        return;
+      }
+
+      const queryKey = messageHistoryQueryKey(deletedMessage.conversationId);
+
+      if (
+        queryClient.getQueryData<InfiniteData<MessageHistoryPage>>(queryKey)
+      ) {
+        queryClient.setQueryData<InfiniteData<MessageHistoryPage>>(
+          queryKey,
+          (data) => redactReplyPreviews(data, deletedMessage.id),
+        );
+      }
+    });
+    const unsubscribeMessageReactionsUpdated =
+      subscribeToMessageReactionsUpdated((payload) => {
+        const update = mapMessageReactionsUpdatedEvent(payload);
+
+        if (!update || !currentAccountId) {
+          return;
+        }
+
+        const queryKey = messageHistoryQueryKey(update.conversationId);
+
+        if (
+          queryClient.getQueryData<InfiniteData<MessageHistoryPage>>(queryKey)
+        ) {
+          queryClient.setQueryData<InfiniteData<MessageHistoryPage>>(
+            queryKey,
+            (data) =>
+              applyMessageReactionUpdate(data, update, currentAccountId),
+          );
+        }
+      });
     const unsubscribeConnectionState = subscribeToMessagesSocketConnectionState(
       () => {
         if (getMessagesSocketConnectionState() !== "connected") {
@@ -97,10 +147,12 @@ export function MessagesRealtimeSync() {
     return () => {
       unsubscribeMessageNew();
       unsubscribeConversationRead();
+      unsubscribeMessageDeleted();
+      unsubscribeMessageReactionsUpdated();
       unsubscribeConnectionState();
       stopMessagesSocket();
     };
-  }, [queryClient, status]);
+  }, [currentAccountId, queryClient, status]);
 
   return null;
 }

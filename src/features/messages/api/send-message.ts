@@ -2,9 +2,11 @@ import { authenticatedApi } from "@/features/auth/session/session";
 
 import type { MessageHistoryItem } from "../types";
 
-type SendMessageInput = Readonly<{
+export type SendMessageInput = Readonly<{
   clientMessageId: string;
-  content: string;
+  content?: string;
+  attachmentIds?: readonly string[];
+  replyToMessageId?: string;
 }>;
 
 export function sendMessage(

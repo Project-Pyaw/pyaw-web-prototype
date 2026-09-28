@@ -114,31 +114,20 @@ export function ChatShell({
           }
         }}
       />
-      <div className="grid min-h-0 flex-1 md:grid-cols-[clamp(18rem,28vw,22rem)_minmax(0,1fr)]">
-        <div
-          className={`${
-            showConversation ? "hidden md:flex" : "flex"
-          } min-h-0 w-full flex-col overflow-hidden border-r border-border bg-surface`}
-        >
-          {workspace === "chats" ? (
+      {workspace === "connections" ? (
+        <ConnectionsPanel currentAccountId={currentAccount.id} />
+      ) : (
+        <div className="grid min-h-0 flex-1 md:grid-cols-[clamp(18rem,28vw,22rem)_minmax(0,1fr)]">
+          <div
+            className={`${
+              showConversation ? "hidden md:flex" : "flex"
+            } min-h-0 w-full flex-col overflow-hidden border-r border-border bg-surface`}
+          >
             <ConversationSidebar
               selectedConversationId={selectedConversationId}
               self={self}
             />
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <ConnectionsPanel currentAccountId={currentAccount.id} />
-            </div>
-          )}
-        </div>
-        {workspace === "connections" && !showConversation ? (
-          <section className="hidden min-w-0 place-items-center md:grid">
-            <p className="text-sm text-foreground-muted">
-              Manage your connections here.
-            </p>
-          </section>
-        ) : null}
-        {workspace === "chats" ? (
+          </div>
           <div
             className={`${
               showConversation ? "flex" : "hidden md:flex"
@@ -152,8 +141,8 @@ export function ChatShell({
               self={self}
             />
           </div>
-        ) : null}
-      </div>
+        </div>
+      )}
     </AppWorkspace>
   );
 }

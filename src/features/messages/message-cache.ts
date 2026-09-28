@@ -4,6 +4,7 @@ import type {
   MessageHistoryItem,
   MessageHistoryPage,
   MessageItem,
+  MessageReaction,
   OptimisticMessage,
 } from "./types";
 
@@ -72,6 +73,15 @@ export function mergePersistedMessage(
         !replaced &&
         (matchesMessage || (!hasPersistedMatch && isOptimisticMessage(item)))
       ) {
+        if (
+          matchesMessage &&
+          !isOptimisticMessage(item) &&
+          item.reactionVersion > message.reactionVersion
+        ) {
+          replaced = true;
+          return [item];
+        }
+
         replaced = true;
         return [message];
       }
@@ -144,6 +154,90 @@ export function applyReadReceipt(
             }
           : message,
       ),
+    })),
+  };
+}
+
+export function redactReplyPreviews(
+  data: InfiniteData<MessageHistoryPage> | undefined,
+  deletedMessageId: string,
+): InfiniteData<MessageHistoryPage> | undefined {
+  if (!data) {
+    return data;
+  }
+
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.map((message) => {
+        if (message.replyTo?.messageId !== deletedMessageId) {
+          return message;
+        }
+
+        return {
+          ...message,
+          replyTo: {
+            ...message.replyTo,
+            content: null,
+            deleted: true,
+            hasAttachments: false,
+          },
+        };
+      }),
+    })),
+  };
+}
+
+export function applyMessageReactionUpdate(
+  data: InfiniteData<MessageHistoryPage> | undefined,
+  update: Readonly<{
+    accountId: string;
+    active: boolean;
+    messageId: string;
+    reaction: MessageReaction;
+    reactionVersion: number;
+    reactions: readonly Readonly<{
+      count: number;
+      reaction: MessageReaction;
+    }>[];
+  }>,
+  currentAccountId: string,
+): InfiniteData<MessageHistoryPage> | undefined {
+  if (!data) {
+    return data;
+  }
+
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.map((message) => {
+        if (
+          isOptimisticMessage(message) ||
+          message.id !== update.messageId ||
+          update.reactionVersion <= message.reactionVersion
+        ) {
+          return message;
+        }
+
+        const reactionsByType = new Map(
+          message.reactions.map((summary) => [summary.reaction, summary]),
+        );
+
+        return {
+          ...message,
+          reactionVersion: update.reactionVersion,
+          reactions: update.reactions.map((summary) => ({
+            ...summary,
+            reactedByMe:
+              update.accountId === currentAccountId &&
+              summary.reaction === update.reaction
+                ? update.active
+                : (reactionsByType.get(summary.reaction)?.reactedByMe ?? false),
+          })),
+        };
+      }),
     })),
   };
 }
