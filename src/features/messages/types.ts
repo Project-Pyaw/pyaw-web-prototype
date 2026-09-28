@@ -45,6 +45,7 @@ export type MessageHistoryItem = Readonly<{
   conversationId: string;
   type: string;
   content: string | null;
+  editedAt: string | null;
   deletedAt: string | null;
   createdAt: string;
   attachments: readonly MessageAttachment[];

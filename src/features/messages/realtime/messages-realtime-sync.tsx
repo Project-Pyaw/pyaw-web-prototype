@@ -11,6 +11,7 @@ import {
   startMessagesSocket,
   stopMessagesSocket,
   subscribeToMessageNew,
+  subscribeToMessageUpdated,
   subscribeToMessageDeleted,
   subscribeToMessageReactionsUpdated,
   subscribeToConversationRead,
@@ -19,6 +20,7 @@ import {
 
 import {
   applyReadReceipt,
+  applyMessageDeleted,
   applyMessageReactionUpdate,
   mergePersistedMessage,
   redactReplyPreviews,
@@ -87,6 +89,26 @@ export function MessagesRealtimeSync() {
         queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
       },
     );
+    const unsubscribeMessageUpdated = subscribeToMessageUpdated((payload) => {
+      const message = mapMessageNewEvent(payload);
+
+      if (!message) {
+        return;
+      }
+
+      const queryKey = messageHistoryQueryKey(message.conversationId);
+
+      if (
+        queryClient.getQueryData<InfiniteData<MessageHistoryPage>>(queryKey)
+      ) {
+        queryClient.setQueryData<InfiniteData<MessageHistoryPage>>(
+          queryKey,
+          (data) => mergePersistedMessage(data, message),
+        );
+      }
+
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+    });
     const unsubscribeMessageDeleted = subscribeToMessageDeleted((payload) => {
       const deletedMessage = mapMessageDeletedEvent(payload);
 
@@ -101,9 +123,15 @@ export function MessagesRealtimeSync() {
       ) {
         queryClient.setQueryData<InfiniteData<MessageHistoryPage>>(
           queryKey,
-          (data) => redactReplyPreviews(data, deletedMessage.id),
+          (data) =>
+            redactReplyPreviews(
+              applyMessageDeleted(data, deletedMessage),
+              deletedMessage.id,
+            ),
         );
       }
+
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
     });
     const unsubscribeMessageReactionsUpdated =
       subscribeToMessageReactionsUpdated((payload) => {
@@ -147,6 +175,7 @@ export function MessagesRealtimeSync() {
     return () => {
       unsubscribeMessageNew();
       unsubscribeConversationRead();
+      unsubscribeMessageUpdated();
       unsubscribeMessageDeleted();
       unsubscribeMessageReactionsUpdated();
       unsubscribeConnectionState();

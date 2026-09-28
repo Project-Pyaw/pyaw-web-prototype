@@ -184,6 +184,7 @@ export function mapMessageNewEvent(
     !isNullableString(data.clientMessageId) ||
     typeof data.type !== "string" ||
     !isNullableString(data.content) ||
+    !isNullableString(data.editedAt) ||
     !isNullableString(data.deletedAt) ||
     attachments === null ||
     reactions === null ||
@@ -227,6 +228,7 @@ export function mapMessageNewEvent(
     conversationId: data.conversationId,
     type: data.type,
     content: data.content,
+    editedAt: data.editedAt,
     deletedAt: data.deletedAt,
     createdAt: data.createdAt,
     attachments,

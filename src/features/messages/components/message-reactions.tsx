@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import type { MessageHistoryItem, MessageReaction } from "../types";
 
 const reactionLabels: Record<MessageReaction, string> = {
@@ -35,16 +33,18 @@ type MessageReactionsProps = Readonly<{
     }>,
   ) => void;
   outgoing: boolean;
+  pickerOpen: boolean;
+  onPickerOpenChange: (open: boolean) => void;
 }>;
 
 export function MessageReactions({
   isPending,
   message,
+  onPickerOpenChange,
   onToggle,
   outgoing,
+  pickerOpen,
 }: MessageReactionsProps) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-
   function toggle(reaction: MessageReaction, reactedByMe: boolean): void {
     onToggle({
       messageId: message.id,
@@ -79,7 +79,7 @@ export function MessageReactions({
         aria-expanded={pickerOpen}
         aria-label="Add reaction"
         className="min-h-8 rounded-full border border-border bg-surface px-2 text-sm text-foreground-muted opacity-100 transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-        onClick={() => setPickerOpen((open) => !open)}
+        onClick={() => onPickerOpenChange(!pickerOpen)}
         type="button"
       >
         <span aria-hidden="true">☺</span>
@@ -105,7 +105,7 @@ export function MessageReactions({
                 key={reaction}
                 onClick={() => {
                   toggle(reaction, reactedByMe);
-                  setPickerOpen(false);
+                  onPickerOpenChange(false);
                 }}
                 type="button"
               >

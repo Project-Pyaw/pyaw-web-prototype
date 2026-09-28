@@ -6,13 +6,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileAvatar } from "@/features/profile/components/profile-avatar";
 
 import { MessageImageAttachment } from "./message-image-attachment";
+import { MessageActions } from "./message-actions";
 import { MessageReactions } from "./message-reactions";
 import { MessageReplyPreview } from "./message-reply-preview";
 import type { MessageHistoryItem, OptimisticMessage } from "../types";
 import { useMessageHistory } from "../hooks/use-message-history";
+import { useMessageActions } from "../hooks/use-message-actions";
 import { useMessageReactions } from "../hooks/use-message-reactions";
 
 const MESSAGE_GROUP_GAP_MS = 5 * 60 * 1_000;
+const MAX_TEXT_MESSAGE_LENGTH = 4_000;
 
 type MessageHistoryProps = Readonly<{
   conversationId: string;
@@ -181,6 +184,7 @@ export function MessageHistory({
   onRetry,
 }: MessageHistoryProps) {
   const history = useMessageHistory(conversationId, true);
+  const messageActions = useMessageActions(conversationId);
   const messageReactions = useMessageReactions(conversationId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previousScrollRef = useRef<{
@@ -195,6 +199,17 @@ export function MessageHistory({
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     string | null
   >(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState("");
+  const [messageActionError, setMessageActionError] = useState<string | null>(
+    null,
+  );
+  const [messageActionErrorId, setMessageActionErrorId] = useState<
+    string | null
+  >(null);
+  const [reactionPickerMessageId, setReactionPickerMessageId] = useState<
+    string | null
+  >(null);
   const messages =
     history.data?.pages
       .toReversed()
@@ -202,7 +217,8 @@ export function MessageHistory({
       .filter(
         (message) =>
           message.type === "TEXT" &&
-          (Boolean(message.content) ||
+          ((!isOptimisticMessage(message) && message.deletedAt !== null) ||
+            Boolean(message.content) ||
             message.attachments.some(
               (attachment) => attachment.kind === "IMAGE",
             )),
@@ -295,6 +311,11 @@ export function MessageHistory({
     [],
   );
 
+  useEffect(() => {
+    cancelEditing();
+    setReactionPickerMessageId(null);
+  }, [conversationId]);
+
   function handleScroll() {
     const container = scrollRef.current;
 
@@ -348,6 +369,59 @@ export function MessageHistory({
     }, 1_200);
   }
 
+  function beginEditing(message: MessageHistoryItem): void {
+    setEditingDraft(message.content ?? "");
+    setEditingMessageId(message.id);
+    setMessageActionError(null);
+    setMessageActionErrorId(null);
+  }
+
+  function cancelEditing(): void {
+    setEditingDraft("");
+    setEditingMessageId(null);
+    setMessageActionError(null);
+    setMessageActionErrorId(null);
+  }
+
+  async function saveEdit(message: MessageHistoryItem): Promise<void> {
+    const content = editingDraft.trim();
+
+    if (!content) {
+      setMessageActionError("A message cannot be empty.");
+      setMessageActionErrorId(message.id);
+      return;
+    }
+
+    if (content.length > MAX_TEXT_MESSAGE_LENGTH) {
+      setMessageActionError("Messages can contain up to 4,000 characters.");
+      setMessageActionErrorId(message.id);
+      return;
+    }
+
+    const result = await messageActions.edit(message.id, content);
+
+    if (result.ok) {
+      cancelEditing();
+      return;
+    }
+
+    setMessageActionError(
+      result.code === "MESSAGE_EDIT_ATTACHMENTS_UNSUPPORTED"
+        ? "Messages with attachments cannot be edited."
+        : result.message,
+    );
+    setMessageActionErrorId(message.id);
+  }
+
+  async function deleteForEveryone(message: MessageHistoryItem): Promise<void> {
+    const result = await messageActions.remove(message.id);
+
+    if (!result.ok) {
+      setMessageActionError(result.message);
+      setMessageActionErrorId(message.id);
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div
@@ -391,6 +465,7 @@ export function MessageHistory({
           ) : null}
           {messages.map((message, index) => {
             const optimistic = isOptimisticMessage(message);
+            const deleted = !optimistic && message.deletedAt !== null;
             const outgoing =
               optimistic || message.sender.accountId === currentAccountId;
             const seen =
@@ -426,6 +501,13 @@ export function MessageHistory({
             const replyTo = message.replyTo;
             const isImageOnlyMessage =
               imageAttachments.length > 0 && !message.content && !replyTo;
+            const canDelete =
+              !optimistic &&
+              !deleted &&
+              message.type === "TEXT" &&
+              message.sender.accountId === currentAccountId;
+            const canEdit = canDelete && message.attachments.length === 0;
+            const editing = !optimistic && editingMessageId === message.id;
             const showIncomingTail =
               !isImageOnlyMessage &&
               !outgoing &&
@@ -436,40 +518,93 @@ export function MessageHistory({
               <div className="min-w-0 max-w-[85%] sm:max-w-[min(36rem,70vw)]">
                 <div
                   className={`text-sm leading-5 ${
-                    isImageOnlyMessage
-                      ? "p-0"
-                      : outgoing
-                        ? "rounded-2xl rounded-tr-md bg-message-outgoing px-3.5 py-2 text-message-outgoing-foreground"
-                        : "rounded-2xl border border-border/70 bg-message-incoming px-3.5 py-2 text-message-incoming-foreground"
+                    deleted
+                      ? "rounded-2xl border border-border bg-surface px-3.5 py-2 text-foreground-muted"
+                      : isImageOnlyMessage
+                        ? "p-0"
+                        : outgoing
+                          ? "rounded-2xl rounded-tr-md bg-message-outgoing px-3.5 py-2 text-message-outgoing-foreground"
+                          : "rounded-2xl border border-border/70 bg-message-incoming px-3.5 py-2 text-message-incoming-foreground"
                   } ${
                     showIncomingTail
                       ? "relative rounded-bl-md after:absolute after:-bottom-px after:-left-1 after:size-3 after:bg-message-incoming after:[clip-path:polygon(100%_0,100%_100%,0_100%)]"
                       : ""
                   }`}
                 >
-                  {replyTo ? (
-                    <div className="mb-2">
-                      <MessageReplyPreview
-                        onClick={() => scrollToMessage(replyTo.messageId)}
-                        replyTo={replyTo}
-                      />
-                    </div>
-                  ) : null}
-                  {imageAttachments.map((attachment) => (
-                    <div className="mb-2 last:mb-0" key={attachment.id}>
-                      <MessageImageAttachment
-                        attachment={attachment}
-                        localPreviewUrl={
-                          optimistic ? message.localImagePreviewUrl : undefined
-                        }
-                      />
-                    </div>
-                  ))}
-                  {message.content ? (
-                    <p className="whitespace-pre-wrap break-words">
-                      {message.content}
+                  {deleted ? (
+                    <p className="italic text-foreground-muted">
+                      This message was deleted
                     </p>
-                  ) : null}
+                  ) : editing ? (
+                    <div className="space-y-2">
+                      <label
+                        className="sr-only"
+                        htmlFor={`message-${message.id}`}
+                      >
+                        Edit message
+                      </label>
+                      <textarea
+                        className="min-h-20 w-full resize-y rounded-lg border border-border bg-surface px-2.5 py-2 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/20"
+                        id={`message-${message.id}`}
+                        maxLength={MAX_TEXT_MESSAGE_LENGTH}
+                        onChange={(event) =>
+                          setEditingDraft(event.target.value)
+                        }
+                        value={editingDraft}
+                      />
+                      {messageActionError ? (
+                        <p className="text-xs text-danger" role="alert">
+                          {messageActionError}
+                        </p>
+                      ) : null}
+                      <div className="flex justify-end gap-2">
+                        <button
+                          className="min-h-8 rounded-md px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40"
+                          disabled={messageActions.isPending(message.id)}
+                          onClick={cancelEditing}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="min-h-8 rounded-md bg-primary px-2.5 text-xs font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 disabled:cursor-wait disabled:opacity-60"
+                          disabled={messageActions.isPending(message.id)}
+                          onClick={() => void saveEdit(message)}
+                          type="button"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {replyTo ? (
+                        <div className="mb-2">
+                          <MessageReplyPreview
+                            onClick={() => scrollToMessage(replyTo.messageId)}
+                            replyTo={replyTo}
+                          />
+                        </div>
+                      ) : null}
+                      {imageAttachments.map((attachment) => (
+                        <div className="mb-2 last:mb-0" key={attachment.id}>
+                          <MessageImageAttachment
+                            attachment={attachment}
+                            localPreviewUrl={
+                              optimistic
+                                ? message.localImagePreviewUrl
+                                : undefined
+                            }
+                          />
+                        </div>
+                      ))}
+                      {message.content ? (
+                        <p className="whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
                 <div
                   className={`mt-1 flex items-center gap-1.5 px-1 text-[11px] text-foreground-muted ${
@@ -479,28 +614,44 @@ export function MessageHistory({
                   <time dateTime={message.createdAt}>
                     {formatTimestamp(message.createdAt)}
                   </time>
+                  {!optimistic && message.editedAt ? <span>Edited</span> : null}
                   {outgoing && deliveryState !== "failed" ? (
                     <DeliveryCheck state={deliveryState} />
                   ) : null}
                   {deliveryState === "failed" ? (
                     <span className="font-medium text-danger">Failed</span>
                   ) : null}
-                  {!optimistic ? (
-                    <button
-                      className="font-medium text-foreground-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40"
-                      onClick={() => onReply(message)}
-                      type="button"
-                    >
-                      Reply
-                    </button>
+                  {!optimistic && !deleted ? (
+                    <MessageActions
+                      canDelete={canDelete}
+                      canEdit={canEdit}
+                      isPending={messageActions.isPending(message.id)}
+                      message={message}
+                      onDelete={() => void deleteForEveryone(message)}
+                      onEdit={() => beginEditing(message)}
+                      onReact={() => setReactionPickerMessageId(message.id)}
+                      onReply={() => onReply(message)}
+                      outgoing={outgoing}
+                    />
                   ) : null}
                 </div>
-                {!optimistic && message.deletedAt === null ? (
+                {!optimistic &&
+                !editing &&
+                messageActionErrorId === message.id ? (
+                  <p className="mt-1 px-1 text-xs text-danger" role="alert">
+                    {messageActionError}
+                  </p>
+                ) : null}
+                {!optimistic && !deleted ? (
                   <MessageReactions
                     isPending={messageReactions.isPending}
                     message={message}
+                    onPickerOpenChange={(open) =>
+                      setReactionPickerMessageId(open ? message.id : null)
+                    }
                     onToggle={messageReactions.toggleReaction}
                     outgoing={outgoing}
+                    pickerOpen={reactionPickerMessageId === message.id}
                   />
                 ) : null}
                 {optimistic && message.deliveryState === "failed" ? (

@@ -76,7 +76,12 @@ export function mergePersistedMessage(
         if (
           matchesMessage &&
           !isOptimisticMessage(item) &&
-          item.reactionVersion > message.reactionVersion
+          ((item.deletedAt !== null && message.deletedAt === null) ||
+            (item.reactionVersion > message.reactionVersion &&
+              message.deletedAt === null) ||
+            (item.editedAt !== null &&
+              message.editedAt !== null &&
+              Date.parse(item.editedAt) > Date.parse(message.editedAt)))
         ) {
           replaced = true;
           return [item];
@@ -189,6 +194,39 @@ export function redactReplyPreviews(
   };
 }
 
+export function applyMessageDeleted(
+  data: InfiniteData<MessageHistoryPage> | undefined,
+  deletedMessage: Readonly<{
+    deletedAt: string;
+    id: string;
+  }>,
+): InfiniteData<MessageHistoryPage> | undefined {
+  if (!data) {
+    return data;
+  }
+
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.map((message) => {
+        if (isOptimisticMessage(message) || message.id !== deletedMessage.id) {
+          return message;
+        }
+
+        return {
+          ...message,
+          attachments: [],
+          content: null,
+          deletedAt: deletedMessage.deletedAt,
+          reactions: [],
+          replyTo: null,
+        };
+      }),
+    })),
+  };
+}
+
 export function applyMessageReactionUpdate(
   data: InfiniteData<MessageHistoryPage> | undefined,
   update: Readonly<{
@@ -216,6 +254,7 @@ export function applyMessageReactionUpdate(
         if (
           isOptimisticMessage(message) ||
           message.id !== update.messageId ||
+          message.deletedAt !== null ||
           update.reactionVersion <= message.reactionVersion
         ) {
           return message;
