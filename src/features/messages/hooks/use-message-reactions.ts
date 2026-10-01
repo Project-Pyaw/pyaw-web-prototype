@@ -5,7 +5,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import {
   addMessageReaction,
@@ -28,6 +28,7 @@ function reactionKey(messageId: string, reaction: MessageReaction): string {
 export function useMessageReactions(conversationId: string) {
   const queryClient = useQueryClient();
   const inFlightReactions = useRef(new Set<string>());
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const mutation = useMutation({
     mutationFn: ({
       messageId,
@@ -53,7 +54,21 @@ export function useMessageReactions(conversationId: string) {
     }
 
     inFlightReactions.current.add(key);
+    setErrors((current) => {
+      if (!current[variables.messageId]) {
+        return current;
+      }
+
+      const { [variables.messageId]: _removed, ...remaining } = current;
+      return remaining;
+    });
     mutation.mutate(variables, {
+      onError: () => {
+        setErrors((current) => ({
+          ...current,
+          [variables.messageId]: "Couldn’t update reaction. Try again.",
+        }));
+      },
       onSettled: () => {
         inFlightReactions.current.delete(key);
       },
@@ -64,5 +79,9 @@ export function useMessageReactions(conversationId: string) {
     return inFlightReactions.current.has(reactionKey(messageId, reaction));
   }
 
-  return { isPending, toggleReaction };
+  return {
+    getError: (messageId: string) => errors[messageId],
+    isPending,
+    toggleReaction,
+  };
 }

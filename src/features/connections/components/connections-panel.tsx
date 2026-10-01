@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOpenDirectConversation } from "@/features/conversations/hooks/use-conversations";
@@ -22,10 +22,11 @@ import type { ConnectionIdentity, ConnectionRequest } from "../types";
 
 type ConnectionsPanelProps = Readonly<{ currentAccountId: string }>;
 type PeopleFilter = "all" | "pending" | "requests";
+type PersonRelationship =
+  "available" | "established" | "incoming" | "outgoing" | "self";
 type SelectedPerson = Readonly<{
   account: ConnectionIdentity;
-  canConnect: boolean;
-  canOpenChat: boolean;
+  relationship: PersonRelationship;
 }>;
 
 function getErrorMessage(error: unknown): string {
@@ -81,6 +82,28 @@ function ConnectionRowSkeleton({
 
 function RequestItem({ request }: Readonly<{ request: ConnectionRequest }>) {
   const respond = useRespondToConnectionRequest();
+  const isRespondingRef = useRef(false);
+  const [pendingAction, setPendingAction] = useState<
+    "ACCEPTED" | "REJECTED" | undefined
+  >();
+
+  function respondToRequest(status: "ACCEPTED" | "REJECTED") {
+    if (isRespondingRef.current) {
+      return;
+    }
+
+    isRespondingRef.current = true;
+    setPendingAction(status);
+    respond.mutate(
+      { requestId: request.id, status },
+      {
+        onSettled: () => {
+          isRespondingRef.current = false;
+          setPendingAction(undefined);
+        },
+      },
+    );
+  }
 
   return (
     <li className="rounded-xl border border-border bg-surface p-3">
@@ -89,22 +112,18 @@ function RequestItem({ request }: Readonly<{ request: ConnectionRequest }>) {
         <button
           className="min-h-11 rounded-full bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={respond.isPending}
-          onClick={() =>
-            respond.mutate({ requestId: request.id, status: "ACCEPTED" })
-          }
+          onClick={() => respondToRequest("ACCEPTED")}
           type="button"
         >
-          Accept
+          {pendingAction === "ACCEPTED" ? "Accepting…" : "Accept"}
         </button>
         <button
           className="min-h-11 rounded-full border border-border px-3 text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={respond.isPending}
-          onClick={() =>
-            respond.mutate({ requestId: request.id, status: "REJECTED" })
-          }
+          onClick={() => respondToRequest("REJECTED")}
           type="button"
         >
-          Decline
+          {pendingAction === "REJECTED" ? "Declining…" : "Decline"}
         </button>
       </div>
       {respond.isError ? (
@@ -118,24 +137,52 @@ function RequestItem({ request }: Readonly<{ request: ConnectionRequest }>) {
 
 function PeopleInspector({
   onClose,
+  onRequestSent,
   person,
 }: Readonly<{
   onClose?: () => void;
+  onRequestSent?: () => void;
   person: SelectedPerson;
 }>) {
   const router = useRouter();
   const openDirectConversation = useOpenDirectConversation();
   const sendRequest = useSendConnectionRequest();
+  const isOpeningChatRef = useRef(false);
+  const isSendingRequestRef = useRef(false);
   const presence = useCounterpartPresence(person.account.id);
   const identity = getProfileDisplayName(
     person.account.profile?.displayName,
     person.account.username,
   );
-  const requestSent = sendRequest.data?.counterpart.id === person.account.id;
+  const requestSent =
+    person.relationship === "outgoing" ||
+    sendRequest.data?.counterpart.id === person.account.id;
 
   function openChat() {
+    if (isOpeningChatRef.current) {
+      return;
+    }
+
+    isOpeningChatRef.current = true;
     openDirectConversation.mutate(person.account.id, {
+      onSettled: () => {
+        isOpeningChatRef.current = false;
+      },
       onSuccess: (conversation) => router.push(`/chat/${conversation.id}`),
+    });
+  }
+
+  function sendConnectionRequest() {
+    if (isSendingRequestRef.current) {
+      return;
+    }
+
+    isSendingRequestRef.current = true;
+    sendRequest.mutate(person.account.id, {
+      onSettled: () => {
+        isSendingRequestRef.current = false;
+      },
+      onSuccess: () => onRequestSent?.(),
     });
   }
 
@@ -175,7 +222,7 @@ function PeopleInspector({
               @{person.account.username}
             </p>
           ) : null}
-          {presence ? (
+          {presence?.status === "ONLINE" || presence?.status === "OFFLINE" ? (
             <p className="mt-2 text-sm text-foreground-muted">
               {presence.status === "ONLINE" ? "Online" : "Offline"}
             </p>
@@ -183,11 +230,11 @@ function PeopleInspector({
         </div>
 
         <div className="mt-7 border-t border-border pt-5">
-          {person.canConnect ? (
+          {person.relationship === "available" ? (
             <button
               className="min-h-11 w-full rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={sendRequest.isPending || requestSent}
-              onClick={() => sendRequest.mutate(person.account.id)}
+              onClick={sendConnectionRequest}
               type="button"
             >
               {sendRequest.isPending
@@ -196,7 +243,7 @@ function PeopleInspector({
                   ? "Request sent"
                   : "Send request"}
             </button>
-          ) : person.canOpenChat ? (
+          ) : person.relationship === "established" ? (
             <button
               className="min-h-11 w-full rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={openDirectConversation.isPending}
@@ -205,6 +252,14 @@ function PeopleInspector({
             >
               {openDirectConversation.isPending ? "Opening chat…" : "Open chat"}
             </button>
+          ) : person.relationship === "incoming" ? (
+            <p className="text-center text-sm text-foreground-muted">
+              This person sent you a request. Respond from Incoming requests.
+            </p>
+          ) : person.relationship === "outgoing" ? (
+            <p className="text-center text-sm text-foreground-muted">
+              Connection request pending.
+            </p>
           ) : (
             <p className="text-center text-sm text-foreground-muted">
               This is your account.
@@ -235,27 +290,65 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
   );
   const [showCompactInspector, setShowCompactInspector] = useState(false);
   const lookup = useAccountLookup();
+  const isLookingUpRef = useRef(false);
   const connections = useConnections(true);
   const incoming = useConnectionRequests("INCOMING", true, "PENDING");
   const outgoing = useConnectionRequests("OUTGOING", true, "PENDING");
   const lookupAccount = lookup.data?.account;
   const establishedAccounts = connections.data?.items ?? [];
 
-  function handleLookup(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = phone.trim();
-
-    if (value) {
-      lookup.mutate(value);
+  function getRelationship(account: ConnectionIdentity): PersonRelationship {
+    if (account.id === currentAccountId) {
+      return "self";
     }
+
+    if (
+      establishedAccounts.some(
+        (connection) => connection.counterpart.id === account.id,
+      )
+    ) {
+      return "established";
+    }
+
+    if (
+      incoming.data?.items.some(
+        (request) => request.counterpart.id === account.id,
+      )
+    ) {
+      return "incoming";
+    }
+
+    if (
+      outgoing.data?.items.some(
+        (request) => request.counterpart.id === account.id,
+      )
+    ) {
+      return "outgoing";
+    }
+
+    return "available";
   }
 
-  function selectPerson(
-    account: ConnectionIdentity,
-    canConnect: boolean,
-    canOpenChat: boolean,
-  ) {
-    setSelectedPerson({ account, canConnect, canOpenChat });
+  function findPerson(value: string) {
+    if (!value || isLookingUpRef.current) {
+      return;
+    }
+
+    isLookingUpRef.current = true;
+    lookup.mutate(value, {
+      onSettled: () => {
+        isLookingUpRef.current = false;
+      },
+    });
+  }
+
+  function handleLookup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    findPerson(phone.trim());
+  }
+
+  function selectPerson(account: ConnectionIdentity) {
+    setSelectedPerson({ account, relationship: getRelationship(account) });
     setShowCompactInspector(window.innerWidth < 1280);
   }
 
@@ -264,12 +357,11 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
   const selectedAccountId = selectedPerson?.account.id;
   const showIncoming = filter !== "pending";
   const showOutgoing = filter !== "requests";
-  const lookupIsEstablished = Boolean(
-    lookupAccount &&
-    establishedAccounts.some(
-      (connection) => connection.counterpart.id === lookupAccount.id,
-    ),
-  );
+  function markSelectedRequestAsSent() {
+    setSelectedPerson((current) =>
+      current ? { ...current, relationship: "outgoing" } : current,
+    );
+  }
 
   return (
     <div className="relative grid h-full min-h-0 overflow-hidden bg-background md:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)] xl:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)_22rem]">
@@ -303,7 +395,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
               [
                 ["all", "All People", undefined],
                 ["requests", "Requests", incomingCount],
-                ["pending", "Pending", outgoingCount],
+                ["pending", "Sent", outgoingCount],
               ] as const
             ).map(([value, label, count]) => (
               <button
@@ -357,9 +449,18 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
                 </div>
               ) : null}
               {incoming.isError ? (
-                <p className="text-sm text-danger" role="alert">
-                  {getErrorMessage(incoming.error)}
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/20 p-3">
+                  <p className="text-sm text-danger" role="alert">
+                    {getErrorMessage(incoming.error)}
+                  </p>
+                  <button
+                    className="min-h-10 rounded-full border border-border px-3 text-sm font-semibold text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+                    onClick={() => void incoming.refetch()}
+                    type="button"
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : null}
               {incoming.data?.items.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-foreground-muted">
@@ -387,7 +488,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
                   className="text-xs font-semibold uppercase tracking-wide text-foreground-muted"
                   id="pending-requests-title"
                 >
-                  Pending
+                  Sent requests
                 </h2>
                 {outgoingCount ? (
                   <span className="text-xs text-foreground-muted">
@@ -404,9 +505,18 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
                 </div>
               ) : null}
               {outgoing.isError ? (
-                <p className="text-sm text-danger" role="alert">
-                  {getErrorMessage(outgoing.error)}
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/20 p-3">
+                  <p className="text-sm text-danger" role="alert">
+                    {getErrorMessage(outgoing.error)}
+                  </p>
+                  <button
+                    className="min-h-10 rounded-full border border-border px-3 text-sm font-semibold text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+                    onClick={() => void outgoing.refetch()}
+                    type="button"
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : null}
               {outgoing.data?.items.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-foreground-muted">
@@ -476,9 +586,19 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {lookup.isError ? (
-            <p className="m-4 text-sm text-danger" role="alert">
-              {getErrorMessage(lookup.error)}
-            </p>
+            <div className="m-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/20 p-3">
+              <p className="text-sm text-danger" role="alert">
+                {getErrorMessage(lookup.error)}
+              </p>
+              <button
+                className="min-h-10 rounded-full border border-border px-3 text-sm font-semibold text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!phone.trim() || lookup.isPending}
+                onClick={() => findPerson(phone.trim())}
+                type="button"
+              >
+                Retry
+              </button>
+            </div>
           ) : null}
           {lookup.isSuccess && !lookup.data.registered ? (
             <p className="m-4 rounded-xl border border-dashed border-border p-4 text-sm text-foreground-muted">
@@ -502,14 +622,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
                     ? "border-primary bg-primary/10"
                     : "border-transparent hover:bg-surface-muted"
                 }`}
-                onClick={() =>
-                  selectPerson(
-                    lookupAccount,
-                    !lookupIsEstablished &&
-                      lookupAccount.id !== currentAccountId,
-                    lookupIsEstablished,
-                  )
-                }
+                onClick={() => selectPerson(lookupAccount)}
                 type="button"
               >
                 <Identity account={lookupAccount} />
@@ -545,9 +658,18 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
               </div>
             ) : null}
             {connections.isError ? (
-              <p className="m-4 text-sm text-danger" role="alert">
-                {getErrorMessage(connections.error)}
-              </p>
+              <div className="m-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/20 p-3">
+                <p className="text-sm text-danger" role="alert">
+                  {getErrorMessage(connections.error)}
+                </p>
+                <button
+                  className="min-h-10 rounded-full border border-border px-3 text-sm font-semibold text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+                  onClick={() => void connections.refetch()}
+                  type="button"
+                >
+                  Retry
+                </button>
+              </div>
             ) : null}
             {connections.data?.items.length === 0 ? (
               <p className="p-5 text-sm text-foreground-muted">
@@ -569,9 +691,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
                             ? "border-primary bg-primary/10"
                             : "border-transparent hover:bg-surface-muted"
                         }`}
-                        onClick={() =>
-                          selectPerson(connection.counterpart, false, true)
-                        }
+                        onClick={() => selectPerson(connection.counterpart)}
                         type="button"
                       >
                         <Identity account={connection.counterpart} />
@@ -587,7 +707,10 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
 
       <aside className="hidden min-h-0 border-l border-border xl:flex">
         {selectedPerson ? (
-          <PeopleInspector person={selectedPerson} />
+          <PeopleInspector
+            onRequestSent={markSelectedRequestAsSent}
+            person={selectedPerson}
+          />
         ) : (
           <div className="grid flex-1 place-items-center p-6 text-center">
             <p className="text-sm text-foreground-muted">
@@ -601,6 +724,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
         <div className="absolute inset-0 z-20 flex bg-surface xl:hidden">
           <PeopleInspector
             onClose={() => setShowCompactInspector(false)}
+            onRequestSent={markSelectedRequestAsSent}
             person={selectedPerson}
           />
         </div>

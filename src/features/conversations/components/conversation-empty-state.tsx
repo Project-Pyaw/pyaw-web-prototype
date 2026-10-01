@@ -122,6 +122,19 @@ export function ConversationEmptyState({
     });
   }
 
+  function redactReplyTarget(messageId: string) {
+    setReplyTo((currentReplyTo) =>
+      currentReplyTo?.messageId === messageId
+        ? {
+            ...currentReplyTo,
+            content: null,
+            deleted: true,
+            hasAttachments: false,
+          }
+        : currentReplyTo,
+    );
+  }
+
   if (!conversation || !identity) {
     return (
       <section className="grid min-h-0 flex-1 place-items-center p-6 text-center">
@@ -259,6 +272,7 @@ export function ConversationEmptyState({
               }
         }
         currentAccountId={currentAccountId}
+        onMessageDeleted={redactReplyTarget}
         onReadIncoming={(messageId) =>
           markConversationRead.markRead(conversation.id, messageId)
         }

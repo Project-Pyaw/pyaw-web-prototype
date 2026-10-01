@@ -18,12 +18,17 @@ type MarkReadVariables = Readonly<{
 
 export function useMarkConversationRead() {
   const queryClient = useQueryClient();
-  const acknowledgedMessageIds = useRef(new Set<string>());
+  const acknowledgedMessageIds = useRef(new Map<string, string>());
   const mutation = useMutation({
     mutationFn: ({ conversationId }: MarkReadVariables) =>
       markConversationRead(conversationId),
     onError: (_error, variables) => {
-      acknowledgedMessageIds.current.delete(variables.messageId);
+      if (
+        acknowledgedMessageIds.current.get(variables.conversationId) ===
+        variables.messageId
+      ) {
+        acknowledgedMessageIds.current.delete(variables.conversationId);
+      }
     },
     onSuccess: (readState, variables) => {
       queryClient.setQueryData<InfiniteData<ConversationPage>>(
@@ -47,11 +52,11 @@ export function useMarkConversationRead() {
   });
 
   function markRead(conversationId: string, messageId: string): void {
-    if (acknowledgedMessageIds.current.has(messageId)) {
+    if (acknowledgedMessageIds.current.get(conversationId) === messageId) {
       return;
     }
 
-    acknowledgedMessageIds.current.add(messageId);
+    acknowledgedMessageIds.current.set(conversationId, messageId);
     mutation.mutate({ conversationId, messageId });
   }
 

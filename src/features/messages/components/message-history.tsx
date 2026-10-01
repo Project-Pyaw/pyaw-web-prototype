@@ -27,6 +27,7 @@ type MessageHistoryProps = Readonly<{
   }>;
   currentAccountId: string;
   onReadIncoming: (messageId: string) => void;
+  onMessageDeleted: (messageId: string) => void;
   onReply: (message: MessageHistoryItem) => void;
   onRetry: (message: OptimisticMessage) => void;
 }>;
@@ -188,6 +189,7 @@ export function MessageHistory({
   counterpart,
   currentAccountId,
   onReadIncoming,
+  onMessageDeleted,
   onReply,
   onRetry,
 }: MessageHistoryProps) {
@@ -293,6 +295,7 @@ export function MessageHistory({
 
   useEffect(() => {
     if (
+      conversationType !== "DIRECT" ||
       !history.data ||
       !latestIncomingMessage ||
       !shouldFollowLatestRef.current ||
@@ -302,11 +305,12 @@ export function MessageHistory({
     }
 
     onReadIncomingRef.current(latestIncomingMessage.id);
-  }, [history.data, latestIncomingMessage]);
+  }, [conversationType, history.data, latestIncomingMessage]);
 
   useEffect(() => {
     function handleVisibilityChange() {
       if (
+        conversationType !== "DIRECT" ||
         document.visibilityState !== "visible" ||
         !shouldFollowLatestRef.current ||
         !latestIncomingMessage
@@ -321,7 +325,7 @@ export function MessageHistory({
 
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [latestIncomingMessage]);
+  }, [conversationType, latestIncomingMessage]);
 
   useEffect(
     () => () => {
@@ -386,6 +390,7 @@ export function MessageHistory({
       96;
 
     if (
+      conversationType === "DIRECT" &&
       shouldFollowLatestRef.current &&
       latestIncomingMessage &&
       document.visibilityState === "visible"
@@ -396,6 +401,10 @@ export function MessageHistory({
 
   function loadOlderMessages() {
     const container = scrollRef.current;
+
+    if (!history.hasNextPage || history.isFetchingNextPage) {
+      return;
+    }
 
     if (container) {
       previousScrollRef.current = {
@@ -474,10 +483,13 @@ export function MessageHistory({
   async function deleteForEveryone(message: MessageHistoryItem): Promise<void> {
     const result = await messageActions.remove(message.id);
 
-    if (!result.ok) {
-      setMessageActionError(result.message);
-      setMessageActionErrorId(message.id);
+    if (result.ok) {
+      onMessageDeleted(message.id);
+      return;
     }
+
+    setMessageActionError(result.message);
+    setMessageActionErrorId(message.id);
   }
 
   return (
@@ -510,9 +522,18 @@ export function MessageHistory({
             </button>
           ) : null}
           {history.isError ? (
-            <p className="text-center text-sm text-danger" role="alert">
-              Messages are unavailable right now.
-            </p>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <p className="text-sm text-danger" role="alert">
+                Messages are unavailable right now.
+              </p>
+              <button
+                className="min-h-10 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+                onClick={() => void history.refetch()}
+                type="button"
+              >
+                Retry
+              </button>
+            </div>
           ) : null}
           {isEmpty ? (
             <p className="text-center text-sm text-foreground-muted">
@@ -562,6 +583,9 @@ export function MessageHistory({
               (attachment) => attachment.kind === "IMAGE",
             );
             const replyTo = message.replyTo;
+            const reactionError = optimistic
+              ? undefined
+              : messageReactions.getError(message.id);
             const isImageOnlyMessage =
               imageAttachments.length > 0 && !message.content && !replyTo;
             const canDelete =
@@ -605,7 +629,8 @@ export function MessageHistory({
                         }
                         value={editingDraft}
                       />
-                      {messageActionError ? (
+                      {messageActionErrorId === message.id &&
+                      messageActionError ? (
                         <p className="text-xs text-danger" role="alert">
                           {messageActionError}
                         </p>
@@ -701,6 +726,11 @@ export function MessageHistory({
                     pickerOpen={reactionPickerMessageId === message.id}
                     pickerRef={reactionPickerRef}
                   />
+                ) : null}
+                {!optimistic && !deleted && reactionError ? (
+                  <p className="mt-1 px-1 text-xs text-danger" role="alert">
+                    {reactionError}
+                  </p>
                 ) : null}
                 <div
                   className={`mt-1.5 flex items-center gap-1.5 px-1 text-[11px] text-foreground-muted ${

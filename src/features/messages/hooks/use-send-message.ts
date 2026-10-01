@@ -179,7 +179,7 @@ export function useSendMessage(conversationId: string) {
       return false;
     }
 
-    return submit({
+    const accepted = submit({
       clientMessageId,
       ...(content ? { content } : {}),
       conversationId,
@@ -188,6 +188,19 @@ export function useSendMessage(conversationId: string) {
         : {}),
       ...(replyTo ? { replyToMessageId: replyTo.messageId } : {}),
     });
+
+    if (!accepted) {
+      queryClient.setQueryData<InfiniteData<MessageHistoryPage>>(
+        queryKey,
+        (data) =>
+          updateOptimisticMessage(data, clientMessageId, (message) => ({
+            ...message,
+            deliveryState: "failed",
+          })),
+      );
+    }
+
+    return accepted;
   }
 
   async function send(

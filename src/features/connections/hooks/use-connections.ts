@@ -7,11 +7,15 @@ import {
   respondToConnectionRequest,
   sendConnectionRequest,
 } from "../api/connections-api";
-import type { ConnectionRequestDirection } from "../types";
+import type {
+  ConnectionPage,
+  ConnectionRequest,
+  ConnectionRequestDirection,
+} from "../types";
 
 export const connectionsQueryKey = ["connections"] as const;
 
-const connectionRequestQueryKey = (
+export const connectionRequestQueryKey = (
   direction: ConnectionRequestDirection,
   status?: "PENDING",
 ) =>
@@ -28,11 +32,30 @@ function invalidateRequestState(
   });
 }
 
+function removeRequestFromCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  direction: ConnectionRequestDirection,
+  requestId: string,
+) {
+  queryClient.setQueriesData<ConnectionPage<ConnectionRequest>>(
+    { queryKey: connectionRequestQueryKey(direction) },
+    (current) =>
+      current
+        ? {
+            ...current,
+            items: current.items.filter((request) => request.id !== requestId),
+          }
+        : current,
+  );
+}
+
 export function useConnections(enabled: boolean) {
   return useQuery({
     enabled,
     queryFn: getConnections,
     queryKey: connectionsQueryKey,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -45,6 +68,8 @@ export function useConnectionRequests(
     enabled,
     queryFn: () => getConnectionRequests({ direction, status }),
     queryKey: connectionRequestQueryKey(direction, status),
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -57,7 +82,17 @@ export function useSendConnectionRequest() {
 
   return useMutation({
     mutationFn: sendConnectionRequest,
-    onSuccess: () => {
+    onSuccess: (request) => {
+      queryClient.setQueryData<ConnectionPage<ConnectionRequest>>(
+        connectionRequestQueryKey("OUTGOING", "PENDING"),
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: [request, ...current.items],
+              }
+            : current,
+      );
       invalidateRequestState(queryClient, "OUTGOING");
     },
   });
@@ -74,11 +109,15 @@ export function useRespondToConnectionRequest() {
       requestId: string;
       status: "ACCEPTED" | "REJECTED";
     }) => respondToConnectionRequest(requestId, status),
-    onSuccess: (_, variables) => {
-      invalidateRequestState(queryClient, "INCOMING");
+    onSuccess: (request, variables) => {
+      removeRequestFromCache(queryClient, request.direction, request.id);
+      invalidateRequestState(queryClient, request.direction);
 
       if (variables.status === "ACCEPTED") {
-        queryClient.invalidateQueries({ queryKey: connectionsQueryKey });
+        queryClient.invalidateQueries({
+          exact: true,
+          queryKey: connectionsQueryKey,
+        });
       }
     },
   });
