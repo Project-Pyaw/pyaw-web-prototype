@@ -32,6 +32,10 @@ import {
   currentProfileQueryKey,
   useCurrentProfile,
 } from "../hooks/use-current-profile";
+import {
+  useAccountPrivacy,
+  useUpdateAccountPrivacy,
+} from "../hooks/use-account-privacy";
 import { useUpdateCurrentProfile } from "../hooks/use-update-current-profile";
 
 const MAX_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
@@ -135,10 +139,21 @@ function ProfileField({
   );
 }
 
-function SettingRow({
+type PrivacySettingRowProps = Readonly<{
+  checked: boolean;
+  description: string;
+  disabled: boolean;
+  onChange: () => void;
+  title: string;
+}>;
+
+function PrivacySettingRow({
+  checked,
   description,
+  disabled,
+  onChange,
   title,
-}: Readonly<{ description: string; title: string }>) {
+}: PrivacySettingRowProps) {
   return (
     <div className="flex items-center gap-4 px-5 py-5 sm:px-6">
       <span
@@ -151,13 +166,19 @@ function SettingRow({
         <h3 className="text-base font-semibold text-foreground">{title}</h3>
         <p className="mt-0.5 text-sm text-foreground-muted">{description}</p>
       </div>
-      <span
-        aria-label={`${title} enabled`}
-        className="ml-auto inline-flex h-7 w-12 shrink-0 items-center justify-end rounded-full bg-primary p-1"
-        role="img"
+      <button
+        aria-checked={checked}
+        aria-label={`${title}: ${checked ? "visible" : "hidden"}`}
+        className={`ml-auto inline-flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60 ${
+          checked ? "justify-end bg-primary" : "justify-start bg-border"
+        }`}
+        disabled={disabled}
+        onClick={onChange}
+        role="switch"
+        type="button"
       >
         <span className="size-5 rounded-full bg-white" />
-      </span>
+      </button>
     </div>
   );
 }
@@ -267,10 +288,13 @@ export function ProfileScreen() {
   const queryClient = useQueryClient();
   const { bootstrapError, status } = useSessionStatus();
   const profileQuery = useCurrentProfile(status === "authenticated");
+  const privacyQuery = useAccountPrivacy(status === "authenticated");
   const updateCurrentProfile = useUpdateCurrentProfile();
+  const updateAccountPrivacy = useUpdateAccountPrivacy();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const logoutButtonRef = useRef<HTMLButtonElement>(null);
   const isProfileMutationInFlightRef = useRef(false);
+  const isPrivacyMutationInFlightRef = useRef(false);
   const hasInitializedProfileFormRef = useRef(false);
   const isLoggingOutRef = useRef(false);
   const [displayName, setDisplayName] = useState("");
@@ -282,6 +306,9 @@ export function ProfileScreen() {
     { message: string; type: "error" | "progress" | "success" } | undefined
   >();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [privacyFeedback, setPrivacyFeedback] = useState<
+    { message: string; type: "error" | "pending" | "success" } | undefined
+  >();
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const serverDisplayName = profileQuery.data?.profile.displayName ?? "";
@@ -416,6 +443,33 @@ export function ProfileScreen() {
       if (avatarInputRef.current) {
         avatarInputRef.current.value = "";
       }
+    }
+  }
+
+  async function updatePrivacySetting(
+    setting: "onlineVisibleToConnections" | "lastSeenVisibleToConnections",
+    value: boolean,
+  ): Promise<void> {
+    if (isPrivacyMutationInFlightRef.current) {
+      return;
+    }
+
+    isPrivacyMutationInFlightRef.current = true;
+    setPrivacyFeedback({ message: "Saving privacy setting…", type: "pending" });
+
+    try {
+      await updateAccountPrivacy.mutateAsync({ [setting]: value });
+      setPrivacyFeedback({
+        message: "Privacy setting saved.",
+        type: "success",
+      });
+    } catch {
+      setPrivacyFeedback({
+        message: "Unable to update this privacy setting. Please try again.",
+        type: "error",
+      });
+    } finally {
+      isPrivacyMutationInFlightRef.current = false;
     }
   }
 
@@ -802,27 +856,78 @@ export function ProfileScreen() {
                 </div>
               </div>
             </section>
-            <section aria-labelledby="settings-title" className="mt-10">
+            <section aria-labelledby="privacy-title" className="mt-10">
               <h2
                 className="text-3xl font-semibold tracking-tight text-foreground"
-                id="settings-title"
+                id="privacy-title"
               >
-                Settings
+                Privacy
               </h2>
               <p className="mt-1 text-base text-foreground-muted">
-                Control notification behaviors, security parameters, and
-                conversation privacy.
+                Choose what your connections can see about your presence.
               </p>
               <div className="mt-7 divide-y divide-border overflow-hidden rounded-3xl border border-border bg-surface">
-                <SettingRow
-                  description="Play soft chime on new incoming direct messages"
-                  title="Sound Alerts"
-                />
-                <SettingRow
-                  description="Display sender avatars and message snippets in popups"
-                  title="Message Previews"
-                />
+                {privacyQuery.isPending ? (
+                  <p
+                    className="px-5 py-5 text-sm text-foreground-muted sm:px-6"
+                    role="status"
+                  >
+                    Loading privacy settings…
+                  </p>
+                ) : privacyQuery.isError || !privacyQuery.data ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-6">
+                    <p className="text-sm text-danger" role="alert">
+                      Privacy settings are unavailable.
+                    </p>
+                    <button
+                      className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+                      onClick={() => void privacyQuery.refetch()}
+                      type="button"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <PrivacySettingRow
+                      checked={privacyQuery.data.onlineVisibleToConnections}
+                      description="Let your connections see when you are online."
+                      disabled={updateAccountPrivacy.isPending}
+                      onChange={() =>
+                        void updatePrivacySetting(
+                          "onlineVisibleToConnections",
+                          !privacyQuery.data.onlineVisibleToConnections,
+                        )
+                      }
+                      title="Online status"
+                    />
+                    <PrivacySettingRow
+                      checked={privacyQuery.data.lastSeenVisibleToConnections}
+                      description="Let your connections see when you were last active."
+                      disabled={updateAccountPrivacy.isPending}
+                      onChange={() =>
+                        void updatePrivacySetting(
+                          "lastSeenVisibleToConnections",
+                          !privacyQuery.data.lastSeenVisibleToConnections,
+                        )
+                      }
+                      title="Last seen"
+                    />
+                  </>
+                )}
               </div>
+              {privacyFeedback ? (
+                <p
+                  className={`mt-3 text-sm ${
+                    privacyFeedback.type === "error"
+                      ? "text-danger"
+                      : "text-foreground-muted"
+                  }`}
+                  role={privacyFeedback.type === "error" ? "alert" : "status"}
+                >
+                  {privacyFeedback.message}
+                </p>
+              ) : null}
             </section>
           </div>
         </div>
