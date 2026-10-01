@@ -1,5 +1,10 @@
 import { authenticatedApi } from "@/features/auth/session/session";
 
+export type UpdateCurrentProfileInput = Readonly<{
+  bio?: string | null;
+  displayName?: string;
+}>;
+
 type UpdateCurrentProfileResponse = Readonly<{
   accountId: string;
   avatar: string | null;
@@ -9,10 +14,10 @@ type UpdateCurrentProfileResponse = Readonly<{
 }>;
 
 export function updateCurrentProfile(
-  displayName: string,
+  input: UpdateCurrentProfileInput,
 ): Promise<UpdateCurrentProfileResponse> {
   return authenticatedApi.patch<
     UpdateCurrentProfileResponse,
-    { displayName: string }
-  >("/profile/me", { displayName });
+    UpdateCurrentProfileInput
+  >("/profile/me", input);
 }

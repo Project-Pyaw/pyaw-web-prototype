@@ -10,14 +10,16 @@ type CreateImageUploadInput = Readonly<{
   sizeBytes: number;
 }>;
 
+export type PresignedUpload = Readonly<{
+  method: "PUT";
+  url: string;
+  expiresAt: string;
+  requiredHeaders: Readonly<Record<string, string>>;
+}>;
+
 type CreateImageUploadResponse = Readonly<{
   attachment: MessageAttachment;
-  upload: Readonly<{
-    method: "PUT";
-    url: string;
-    expiresAt: string;
-    requiredHeaders: Readonly<Record<string, string>>;
-  }>;
+  upload: PresignedUpload;
 }>;
 
 export function createImageUpload(
@@ -40,7 +42,7 @@ export function completeImageUpload(
 
 export async function uploadImageBytes(
   file: File,
-  upload: CreateImageUploadResponse["upload"],
+  upload: PresignedUpload,
 ): Promise<void> {
   const response = await fetch(upload.url, {
     body: file,

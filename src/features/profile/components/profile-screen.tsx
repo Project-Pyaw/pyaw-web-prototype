@@ -1,7 +1,14 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   AppHeader,
@@ -9,11 +16,47 @@ import {
 } from "@/components/layout/app-header";
 import { AppWorkspace } from "@/components/layout/app-workspace";
 import { Skeleton } from "@/components/ui/skeleton";
-import { bootstrapSession } from "@/features/auth/session/session";
+import { ApiError } from "@/lib/api/api-error";
+import { bootstrapSession, logout } from "@/features/auth/session/session";
 import { useSessionStatus } from "@/features/auth/session/use-session-status";
+import { stopMessagesSocket } from "@/lib/socket/messages-socket";
 
 import { getProfileDisplayName, ProfileAvatar } from "./profile-avatar";
-import { useCurrentProfile } from "../hooks/use-current-profile";
+import {
+  completeAvatarUpload,
+  createAvatarUpload,
+  uploadAvatarBytes,
+} from "../api/avatar-api";
+import type { UpdateCurrentProfileInput } from "../api/update-current-profile";
+import {
+  currentProfileQueryKey,
+  useCurrentProfile,
+} from "../hooks/use-current-profile";
+import { useUpdateCurrentProfile } from "../hooks/use-update-current-profile";
+
+const MAX_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_BIO_LENGTH = 500;
+const MAX_DISPLAY_NAME_LENGTH = 100;
+const ALLOWED_AVATAR_MIME_TYPES = new Set([
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+function getProfileErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === "PROFILE_UPDATE_CONFLICT") {
+      return "Your profile changed elsewhere. Please review and try again.";
+    }
+
+    if (error.code === "PROFILE_UPDATE_EMPTY") {
+      return "Update at least one profile field.";
+    }
+  }
+
+  return "Unable to save your profile. Please try again.";
+}
 
 function ProfileWorkspace({ children }: Readonly<{ children: ReactNode }>) {
   return <AppWorkspace className="flex flex-col">{children}</AppWorkspace>;
@@ -82,7 +125,8 @@ function ProfileField({
         {label}
       </span>
       <input
-        className="h-12 w-full rounded-2xl border border-border bg-surface px-4 text-base text-foreground outline-none"
+        aria-readonly="true"
+        className="h-12 w-full cursor-default rounded-2xl border border-border bg-surface-muted px-4 text-base text-foreground-muted outline-none"
         readOnly
         type="text"
         value={children}
@@ -118,10 +162,146 @@ function SettingRow({
   );
 }
 
+type LogoutConfirmationDialogProps = Readonly<{
+  isOpen: boolean;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}>;
+
+function LogoutConfirmationDialog({
+  isOpen,
+  isSubmitting,
+  onCancel,
+  onConfirm,
+}: LogoutConfirmationDialogProps) {
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      cancelButtonRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key === "Escape" && !isSubmitting) {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey && activeElement === cancelButtonRef.current) {
+      event.preventDefault();
+      confirmButtonRef.current?.focus();
+    } else if (!event.shiftKey && activeElement === confirmButtonRef.current) {
+      event.preventDefault();
+      cancelButtonRef.current?.focus();
+    }
+  }
+
+  return (
+    <div
+      aria-describedby="logout-confirmation-description"
+      aria-labelledby="logout-confirmation-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 grid place-items-center bg-foreground/20 p-5"
+      onKeyDown={handleKeyDown}
+      role="alertdialog"
+    >
+      <form
+        className="w-full max-w-sm rounded-3xl border border-border bg-surface p-6"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onConfirm();
+        }}
+      >
+        <h2
+          className="text-lg font-semibold text-foreground"
+          id="logout-confirmation-title"
+        >
+          Log out?
+        </h2>
+        <p
+          className="mt-2 text-sm leading-6 text-foreground-muted"
+          id="logout-confirmation-description"
+        >
+          You’ll need to verify your phone number to sign back in.
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSubmitting}
+            onClick={onCancel}
+            ref={cancelButtonRef}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="min-h-10 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-wait disabled:opacity-60"
+            disabled={isSubmitting}
+            ref={confirmButtonRef}
+            type="submit"
+          >
+            {isSubmitting ? "Logging out…" : "Log out"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function ProfileScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { bootstrapError, status } = useSessionStatus();
   const profileQuery = useCurrentProfile(status === "authenticated");
+  const updateCurrentProfile = useUpdateCurrentProfile();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const logoutButtonRef = useRef<HTMLButtonElement>(null);
+  const isProfileMutationInFlightRef = useRef(false);
+  const hasInitializedProfileFormRef = useRef(false);
+  const isLoggingOutRef = useRef(false);
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [profileFeedback, setProfileFeedback] = useState<
+    { message: string; type: "error" | "success" } | undefined
+  >();
+  const [avatarFeedback, setAvatarFeedback] = useState<
+    { message: string; type: "error" | "progress" | "success" } | undefined
+  >();
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const serverDisplayName = profileQuery.data?.profile.displayName ?? "";
+  const serverBio = profileQuery.data?.profile.bio ?? "";
+  const isProfileDirty =
+    hasInitializedProfileFormRef.current &&
+    (displayName !== serverDisplayName || bio !== serverBio);
+  const displayNameError = hasInitializedProfileFormRef.current
+    ? !displayName.trim()
+      ? "Display name is required."
+      : displayName.trim().length > MAX_DISPLAY_NAME_LENGTH
+        ? `Display name must be ${MAX_DISPLAY_NAME_LENGTH} characters or fewer.`
+        : undefined
+    : undefined;
+  const bioError =
+    bio.length > MAX_BIO_LENGTH
+      ? `Bio must be ${MAX_BIO_LENGTH} characters or fewer.`
+      : undefined;
+  const isProfileMutationPending =
+    updateCurrentProfile.isPending || isUploadingAvatar;
 
   function navigateFromProfile(section: AppNavigationSection) {
     if (section === "connections") {
@@ -137,6 +317,140 @@ export function ProfileScreen() {
       router.replace("/login");
     }
   }, [router, status]);
+
+  useEffect(() => {
+    if (!profileQuery.data) {
+      return;
+    }
+
+    if (!hasInitializedProfileFormRef.current || !isProfileDirty) {
+      setDisplayName(serverDisplayName);
+      setBio(serverBio);
+      hasInitializedProfileFormRef.current = true;
+    }
+  }, [isProfileDirty, profileQuery.data, serverBio, serverDisplayName]);
+
+  async function saveProfile(): Promise<void> {
+    if (
+      isProfileMutationInFlightRef.current ||
+      !isProfileDirty ||
+      displayNameError ||
+      bioError
+    ) {
+      return;
+    }
+
+    const normalizedDisplayName = displayName.trim();
+    const normalizedBio = bio === "" ? null : bio;
+    const input: UpdateCurrentProfileInput = {
+      ...(normalizedDisplayName === serverDisplayName
+        ? {}
+        : { displayName: normalizedDisplayName }),
+      ...(normalizedBio === serverBio ? {} : { bio: normalizedBio }),
+    };
+
+    if (!Object.keys(input).length) {
+      return;
+    }
+
+    isProfileMutationInFlightRef.current = true;
+    setProfileFeedback(undefined);
+
+    try {
+      const updatedProfile = await updateCurrentProfile.mutateAsync(input);
+
+      setDisplayName(updatedProfile.displayName ?? "");
+      setBio(updatedProfile.bio ?? "");
+      setProfileFeedback({ message: "Profile saved.", type: "success" });
+    } catch (error) {
+      setProfileFeedback({
+        message: getProfileErrorMessage(error),
+        type: "error",
+      });
+    } finally {
+      isProfileMutationInFlightRef.current = false;
+    }
+  }
+
+  async function uploadAvatar(file: File): Promise<void> {
+    if (isProfileMutationInFlightRef.current) {
+      return;
+    }
+
+    if (!ALLOWED_AVATAR_MIME_TYPES.has(file.type)) {
+      setAvatarFeedback({
+        message: "Choose a GIF, JPEG, PNG, or WebP image.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      setAvatarFeedback({
+        message: "Profile photos can be up to 10 MiB.",
+        type: "error",
+      });
+      return;
+    }
+
+    isProfileMutationInFlightRef.current = true;
+    setIsUploadingAvatar(true);
+    setAvatarFeedback({ message: "Uploading photo…", type: "progress" });
+
+    try {
+      const upload = await createAvatarUpload(file);
+      await uploadAvatarBytes(file, upload.upload);
+      setAvatarFeedback({ message: "Processing photo…", type: "progress" });
+      await completeAvatarUpload(upload.uploadIntent.id);
+      await queryClient.invalidateQueries({ queryKey: currentProfileQueryKey });
+      setAvatarFeedback({ message: "Profile photo updated.", type: "success" });
+    } catch {
+      setAvatarFeedback({
+        message: "Unable to update your profile photo. Please try again.",
+        type: "error",
+      });
+    } finally {
+      isProfileMutationInFlightRef.current = false;
+      setIsUploadingAvatar(false);
+
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
+      }
+    }
+  }
+
+  function closeLogoutDialog() {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLogoutDialogOpen(false);
+    requestAnimationFrame(() => logoutButtonRef.current?.focus());
+  }
+
+  async function confirmLogout(): Promise<void> {
+    if (isLoggingOutRef.current) {
+      return;
+    }
+
+    isLoggingOutRef.current = true;
+    setIsLoggingOut(true);
+    stopMessagesSocket();
+
+    try {
+      await logout();
+    } finally {
+      try {
+        await queryClient.cancelQueries();
+      } catch {
+        // Query cleanup continues below even if a transport cannot be cancelled.
+      }
+
+      queryClient.clear();
+      router.replace("/login");
+      isLoggingOutRef.current = false;
+    }
+  }
 
   if (status === "unauthenticated") {
     return <main className="min-h-[100dvh]" />;
@@ -236,7 +550,7 @@ export function ProfileScreen() {
         username={account.username}
       />
       <div className="grid min-h-0 flex-1 bg-background lg:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)]">
-        <aside className="hidden min-h-0 border-r border-border bg-surface p-5 lg:block">
+        <aside className="hidden min-h-0 flex-col border-r border-border bg-surface p-5 lg:flex">
           <div className="rounded-2xl bg-input p-4">
             <div className="flex items-center gap-3">
               <ProfileAvatar name={identity} size="md" url={profile.avatar} />
@@ -268,10 +582,27 @@ export function ProfileScreen() {
             </ProfileNavigationItem>
             <ProfileNavigationItem icon="ⓘ">About</ProfileNavigationItem>
           </nav>
-          <div className="mt-5 border-t border-border pt-4">
+          <div className="mt-auto border-t border-border pt-4">
             <ProfileNavigationItem icon="?">
               Help &amp; Support
             </ProfileNavigationItem>
+          </div>
+          <div className="mt-5 border-t border-border pt-4">
+            <button
+              className="flex min-h-12 w-full items-center gap-3 rounded-full px-4 text-left text-sm font-semibold text-danger transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isLoggingOut}
+              onClick={() => setIsLogoutDialogOpen(true)}
+              ref={logoutButtonRef}
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                className="grid size-5 place-items-center"
+              >
+                ↪
+              </span>
+              Log out
+            </button>
           </div>
         </aside>
         <div className="min-h-0 overflow-y-auto">
@@ -287,12 +618,22 @@ export function ProfileScreen() {
                 </p>
               </div>
               <button
-                aria-label="Saving profile changes is not available yet"
-                className="min-h-12 cursor-not-allowed rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground"
-                disabled
+                aria-describedby={
+                  displayNameError || bioError
+                    ? "profile-form-error"
+                    : undefined
+                }
+                className="min-h-12 rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={
+                  !isProfileDirty ||
+                  Boolean(displayNameError) ||
+                  Boolean(bioError) ||
+                  isProfileMutationPending
+                }
+                onClick={() => void saveProfile()}
                 type="button"
               >
-                Save Changes
+                {updateCurrentProfile.isPending ? "Saving…" : "Save Changes"}
               </button>
             </div>
             <section
@@ -324,17 +665,81 @@ export function ProfileScreen() {
                     Your avatar is provided by your Pyaw profile.
                   </p>
                   <div className="mt-4 flex items-center gap-5">
-                    <span className="rounded-full bg-input px-4 py-2 text-sm font-medium text-foreground">
-                      Upload New
-                    </span>
-                    <span className="text-sm font-medium text-foreground-muted">
+                    <input
+                      accept="image/gif,image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={isProfileMutationPending}
+                      id="profile-avatar-upload"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+
+                        if (file) {
+                          void uploadAvatar(file);
+                        }
+                      }}
+                      ref={avatarInputRef}
+                      type="file"
+                    />
+                    <button
+                      className="rounded-full bg-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isProfileMutationPending}
+                      onClick={() => avatarInputRef.current?.click()}
+                      type="button"
+                    >
+                      {isUploadingAvatar ? "Uploading…" : "Upload New"}
+                    </button>
+                    <button
+                      aria-describedby="avatar-remove-unavailable"
+                      className="cursor-not-allowed text-sm font-medium text-foreground-muted opacity-60"
+                      disabled
+                      type="button"
+                    >
                       Remove
-                    </span>
+                    </button>
                   </div>
+                  <p
+                    className="mt-3 text-xs text-foreground-muted"
+                    id="avatar-remove-unavailable"
+                  >
+                    Removing a profile photo is not available yet.
+                  </p>
+                  {avatarFeedback ? (
+                    <p
+                      className={`mt-3 text-sm ${
+                        avatarFeedback.type === "error"
+                          ? "text-danger"
+                          : "text-foreground-muted"
+                      }`}
+                      role={
+                        avatarFeedback.type === "error" ? "alert" : "status"
+                      }
+                    >
+                      {avatarFeedback.message}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="mt-7 grid gap-5 sm:grid-cols-2">
-                <ProfileField label="Display Name">{identity}</ProfileField>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-foreground">
+                    Display Name
+                  </span>
+                  <input
+                    aria-describedby={
+                      displayNameError ? "profile-form-error" : undefined
+                    }
+                    aria-invalid={Boolean(displayNameError)}
+                    className="h-12 w-full rounded-2xl border border-border bg-surface px-4 text-base text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isProfileMutationPending}
+                    maxLength={MAX_DISPLAY_NAME_LENGTH + 1}
+                    onChange={(event) => {
+                      setDisplayName(event.target.value);
+                      setProfileFeedback(undefined);
+                    }}
+                    type="text"
+                    value={displayName}
+                  />
+                </label>
                 <ProfileField label="Username">
                   {account.username ? `@${account.username}` : "Not set"}
                 </ProfileField>
@@ -344,14 +749,43 @@ export function ProfileScreen() {
                   About / Bio
                 </span>
                 <textarea
-                  className="min-h-24 w-full resize-none rounded-2xl border border-border bg-surface px-4 py-3 text-base leading-6 text-foreground outline-none"
-                  readOnly
-                  value={profile.bio?.trim() || "No profile description yet."}
+                  aria-describedby={bioError ? "profile-form-error" : undefined}
+                  aria-invalid={Boolean(bioError)}
+                  className="min-h-24 w-full resize-none rounded-2xl border border-border bg-surface px-4 py-3 text-base leading-6 text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isProfileMutationPending}
+                  maxLength={MAX_BIO_LENGTH + 1}
+                  onChange={(event) => {
+                    setBio(event.target.value);
+                    setProfileFeedback(undefined);
+                  }}
+                  placeholder="Tell people a little about yourself."
+                  value={bio}
                 />
                 <span className="mt-2 block text-right text-xs font-medium text-foreground-muted">
-                  {profile.bio?.trim().length ?? 0} characters
+                  {bio.length} / {MAX_BIO_LENGTH}
                 </span>
               </label>
+              {displayNameError || bioError || profileFeedback ? (
+                <p
+                  className={`mt-4 text-sm ${
+                    displayNameError ||
+                    bioError ||
+                    profileFeedback?.type === "error"
+                      ? "text-danger"
+                      : "text-foreground-muted"
+                  }`}
+                  id="profile-form-error"
+                  role={
+                    displayNameError ||
+                    bioError ||
+                    profileFeedback?.type === "error"
+                      ? "alert"
+                      : "status"
+                  }
+                >
+                  {displayNameError || bioError || profileFeedback?.message}
+                </p>
+              ) : null}
               <div className="mt-5 grid gap-5 sm:grid-cols-2">
                 <ProfileField label="Phone Number">
                   {account.phone}
@@ -393,6 +827,12 @@ export function ProfileScreen() {
           </div>
         </div>
       </div>
+      <LogoutConfirmationDialog
+        isOpen={isLogoutDialogOpen}
+        isSubmitting={isLoggingOut}
+        onCancel={closeLogoutDialog}
+        onConfirm={() => void confirmLogout()}
+      />
     </ProfileWorkspace>
   );
 }

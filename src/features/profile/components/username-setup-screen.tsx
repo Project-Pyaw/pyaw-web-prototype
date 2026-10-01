@@ -109,7 +109,9 @@ export function UsernameSetupScreen({
     try {
       if (shouldUpdateDisplayName) {
         try {
-          await updateCurrentProfile.mutateAsync(normalizedDisplayName);
+          await updateCurrentProfile.mutateAsync({
+            displayName: normalizedDisplayName,
+          });
         } catch (submitError) {
           setDisplayNameError(getDisplayNameErrorMessage(submitError));
           return;

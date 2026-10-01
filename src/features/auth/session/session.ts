@@ -44,6 +44,7 @@ const authenticatedSnapshot: SessionSnapshot = {
 
 let accessToken: string | undefined;
 let bootstrapOperation: BootstrapOperation | undefined;
+let logoutOperation: Promise<void> | undefined;
 let refreshOperation: RefreshOperation | undefined;
 let sessionVersion = 0;
 let snapshot = initializingSnapshot;
@@ -206,7 +207,7 @@ export function bootstrapSession(): Promise<void> {
   return bootstrapOperation.promise;
 }
 
-export async function logout(): Promise<void> {
+async function performLogout(): Promise<void> {
   try {
     await authenticatedApi.post<void, undefined>("/auth/logout", undefined, {
       credentials: "include",
@@ -214,22 +215,36 @@ export async function logout(): Promise<void> {
     });
   } catch (error) {
     if (isAccessTokenExpiredError(error)) {
-      const refreshed = await refreshAccessToken();
+      try {
+        const refreshed = await refreshAccessToken();
 
-      if (refreshed) {
-        await authenticatedApi.post<void, undefined>(
-          "/auth/logout",
-          undefined,
-          {
-            credentials: "include",
-            retryOnAccessTokenExpired: false,
-          },
-        );
+        if (refreshed) {
+          await authenticatedApi.post<void, undefined>(
+            "/auth/logout",
+            undefined,
+            {
+              credentials: "include",
+              retryOnAccessTokenExpired: false,
+            },
+          );
+        }
+      } catch {
+        // Local cleanup below is required even when the refresh or retry fails.
       }
     }
   } finally {
     clearSession();
   }
+}
+
+export function logout(): Promise<void> {
+  if (!logoutOperation) {
+    logoutOperation = performLogout().finally(() => {
+      logoutOperation = undefined;
+    });
+  }
+
+  return logoutOperation;
 }
 
 export function getSessionSnapshot(): SessionSnapshot {
