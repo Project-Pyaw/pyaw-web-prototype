@@ -14,6 +14,9 @@ import { ApiError } from "@/lib/api/api-error";
 
 type LoginStep = "phone" | "otp";
 
+const OTP_LENGTH = 6;
+const EMPTY_OTP_SLOT = " ";
+
 const errorMessages: Record<string, string> = {
   ACCOUNT_INACTIVE: "This account is not active.",
   NETWORK_ERROR: "Unable to reach the service. Please try again.",
@@ -43,7 +46,8 @@ function maskPhoneNumber(phone: string): string {
 export function LoginScreen() {
   const router = useRouter();
   const { bootstrapError, status } = useSessionStatus();
-  const otpInputRef = useRef<HTMLInputElement>(null);
+  const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const isSubmissionInProgressRef = useRef(false);
   const [step, setStep] = useState<LoginStep>("phone");
   const [phone, setPhone] = useState("");
   const [requestedPhone, setRequestedPhone] = useState("");
@@ -60,7 +64,7 @@ export function LoginScreen() {
 
   useEffect(() => {
     if (step === "otp") {
-      otpInputRef.current?.focus();
+      otpInputRefs.current[0]?.focus();
     }
   }, [step]);
 
@@ -71,7 +75,7 @@ export function LoginScreen() {
       <main className="grid min-h-screen place-items-center bg-background p-6">
         <section
           aria-busy="true"
-          className="w-full max-w-md space-y-5 rounded-xl border border-border bg-surface p-8"
+          className="w-full max-w-md space-y-5 rounded-3xl border border-border bg-surface p-8"
         >
           <span className="sr-only" role="status">
             Loading your account…
@@ -94,6 +98,11 @@ export function LoginScreen() {
   }
 
   async function requestOtpForPhone(identifier: string) {
+    if (isSubmissionInProgressRef.current) {
+      return;
+    }
+
+    isSubmissionInProgressRef.current = true;
     setError(undefined);
     setIsRequesting(true);
 
@@ -106,6 +115,7 @@ export function LoginScreen() {
       setError(getErrorMessage(requestError));
     } finally {
       setIsRequesting(false);
+      isSubmissionInProgressRef.current = false;
     }
   }
 
@@ -129,8 +139,14 @@ export function LoginScreen() {
       return;
     }
 
+    if (isSubmissionInProgressRef.current) {
+      return;
+    }
+
+    isSubmissionInProgressRef.current = true;
     setError(undefined);
     setIsVerifying(true);
+    let shouldRestoreOtpFocus = false;
 
     try {
       const response = await verifyPhoneOtp(requestedPhone, otp);
@@ -140,9 +156,14 @@ export function LoginScreen() {
     } catch (verifyError) {
       setOtp("");
       setError(getErrorMessage(verifyError));
-      otpInputRef.current?.focus();
+      shouldRestoreOtpFocus = true;
     } finally {
       setIsVerifying(false);
+      isSubmissionInProgressRef.current = false;
+
+      if (shouldRestoreOtpFocus) {
+        requestAnimationFrame(() => focusOtpInput(0));
+      }
     }
   }
 
@@ -153,16 +174,102 @@ export function LoginScreen() {
     setError(undefined);
   }
 
-  function handleOtpChange(value: string) {
-    setOtp(value.replace(/\D/g, "").slice(0, 6));
+  function getOtpDigit(index: number): string {
+    const value = otp[index];
+    return value && /\d/.test(value) ? value : "";
+  }
+
+  function focusOtpInput(index: number): void {
+    otpInputRefs.current[index]?.focus();
+  }
+
+  function setOtpDigits(startIndex: number, digits: string): void {
+    setOtp((currentOtp) => {
+      const otpSlots = currentOtp.padEnd(OTP_LENGTH, EMPTY_OTP_SLOT).split("");
+
+      digits.split("").forEach((digit, offset) => {
+        const index = startIndex + offset;
+        if (index < OTP_LENGTH) {
+          otpSlots[index] = digit;
+        }
+      });
+
+      return otpSlots.join("");
+    });
     setError(undefined);
+  }
+
+  function handleOtpChange(index: number, value: string): void {
+    const digits = value.replace(/\D/g, "");
+
+    if (!digits) {
+      setOtpDigits(index, EMPTY_OTP_SLOT);
+      return;
+    }
+
+    if (digits.length >= OTP_LENGTH) {
+      setOtp(digits.slice(0, OTP_LENGTH));
+      setError(undefined);
+      focusOtpInput(OTP_LENGTH - 1);
+      return;
+    }
+
+    setOtpDigits(index, digits);
+    focusOtpInput(Math.min(index + digits.length, OTP_LENGTH - 1));
+  }
+
+  function handleOtpKeyDown(
+    index: number,
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Backspace") {
+      if (getOtpDigit(index)) {
+        event.preventDefault();
+        setOtpDigits(index, EMPTY_OTP_SLOT);
+      } else if (index > 0) {
+        event.preventDefault();
+        focusOtpInput(index - 1);
+      }
+
+      return;
+    }
+
+    if (event.key === "ArrowLeft" && index > 0) {
+      event.preventDefault();
+      focusOtpInput(index - 1);
+    }
+
+    if (event.key === "ArrowRight" && index < OTP_LENGTH - 1) {
+      event.preventDefault();
+      focusOtpInput(index + 1);
+    }
+  }
+
+  function handleOtpPaste(index: number, value: string): void {
+    const digits = value.replace(/\D/g, "");
+
+    if (!digits) {
+      return;
+    }
+
+    if (digits.length >= OTP_LENGTH) {
+      setOtp(digits.slice(0, OTP_LENGTH));
+      setError(undefined);
+      focusOtpInput(OTP_LENGTH - 1);
+      return;
+    }
+
+    setOtpDigits(index, digits);
+    focusOtpInput(Math.min(index + digits.length, OTP_LENGTH - 1));
   }
 
   return (
     <main className="grid min-h-screen place-items-center bg-background p-6">
-      <section className="w-full max-w-md space-y-6 rounded-xl border border-border bg-surface p-8">
+      <section className="w-full max-w-md space-y-6 rounded-3xl border border-border bg-surface p-8 sm:p-10">
         <div className="space-y-2">
-          <p className="text-sm font-medium text-primary">Pyaw</p>
+          <p className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+            Pyaw
+          </p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {step === "phone" ? "Sign in with your phone" : "Enter your code"}
           </h1>
@@ -184,7 +291,7 @@ export function LoginScreen() {
               </label>
               <input
                 autoComplete="tel"
-                className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20"
+                className="w-full rounded-full border border-border bg-input px-4 py-3 text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20"
                 disabled={isPending}
                 id="phone"
                 inputMode="tel"
@@ -207,7 +314,7 @@ export function LoginScreen() {
             ) : null}
 
             <button
-              className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isPending}
               type="submit"
             >
@@ -219,25 +326,57 @@ export function LoginScreen() {
             <div className="space-y-2">
               <label
                 className="text-sm font-medium text-foreground"
-                htmlFor="otp"
+                id="otp-label"
               >
                 Six-digit code
               </label>
-              <input
+              <div
+                aria-busy={isVerifying}
                 aria-describedby={error ? "otp-error" : undefined}
-                autoComplete="one-time-code"
-                className="w-full rounded-lg border border-border bg-input px-3 py-2.5 font-mono text-lg tracking-[0.35em] text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20"
-                disabled={isPending}
-                id="otp"
-                inputMode="numeric"
-                maxLength={6}
-                onChange={(event) => handleOtpChange(event.target.value)}
-                pattern="[0-9]{6}"
-                ref={otpInputRef}
-                required
-                type="text"
-                value={otp}
-              />
+                aria-labelledby="otp-label"
+                className="grid grid-cols-6 gap-2"
+                role="group"
+              >
+                {Array.from({ length: OTP_LENGTH }, (_, index) => {
+                  const digit = getOtpDigit(index);
+                  const inputStateClassName = error
+                    ? "border-danger focus:border-danger focus:ring-danger/20"
+                    : digit
+                      ? "border-primary/40 bg-surface focus:border-focus focus:ring-focus/20"
+                      : "border-border focus:border-focus focus:ring-focus/20";
+
+                  return (
+                    <input
+                      aria-invalid={Boolean(error)}
+                      aria-label={`Digit ${index + 1} of ${OTP_LENGTH}`}
+                      autoComplete={index === 0 ? "one-time-code" : "off"}
+                      className={`aspect-square min-w-0 rounded-xl border bg-input text-center font-mono text-xl font-semibold text-foreground outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${isVerifying ? "cursor-wait animate-pulse" : ""} ${inputStateClassName}`}
+                      disabled={isPending}
+                      inputMode="numeric"
+                      key={index}
+                      maxLength={OTP_LENGTH}
+                      onChange={(event) =>
+                        handleOtpChange(index, event.target.value)
+                      }
+                      onFocus={(event) => event.currentTarget.select()}
+                      onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                      onPaste={(event) => {
+                        event.preventDefault();
+                        handleOtpPaste(
+                          index,
+                          event.clipboardData.getData("text"),
+                        );
+                      }}
+                      pattern="[0-9]*"
+                      ref={(element) => {
+                        otpInputRefs.current[index] = element;
+                      }}
+                      type="text"
+                      value={digit}
+                    />
+                  );
+                })}
+              </div>
             </div>
 
             {error ? (
@@ -247,7 +386,7 @@ export function LoginScreen() {
             ) : null}
 
             <button
-              className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isPending}
               type="submit"
             >

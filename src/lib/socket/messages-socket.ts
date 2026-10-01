@@ -18,6 +18,7 @@ type MessageNewListener = (payload: unknown) => void;
 type MessageUpdatedListener = (payload: unknown) => void;
 type MessageReactionsUpdatedListener = (payload: unknown) => void;
 type PresenceUpdateListener = (payload: unknown) => void;
+type PresenceInvalidateListener = (payload: unknown) => void;
 type TypingUpdateListener = (payload: unknown) => void;
 
 const connectionStateListeners = new Set<ConnectionStateListener>();
@@ -28,6 +29,7 @@ const messageUpdatedListeners = new Set<MessageUpdatedListener>();
 const messageReactionsUpdatedListeners =
   new Set<MessageReactionsUpdatedListener>();
 const presenceUpdateListeners = new Set<PresenceUpdateListener>();
+const presenceInvalidateListeners = new Set<PresenceInvalidateListener>();
 const typingUpdateListeners = new Set<TypingUpdateListener>();
 
 let connectionState: MessagesSocketConnectionState = "disconnected";
@@ -86,6 +88,9 @@ function createMessagesSocket(): Socket {
   });
   socket.on("presence:update", (payload: unknown) => {
     presenceUpdateListeners.forEach((listener) => listener(payload));
+  });
+  socket.on("presence:invalidate", (payload: unknown) => {
+    presenceInvalidateListeners.forEach((listener) => listener(payload));
   });
   socket.on("conversation:read", (payload: unknown) => {
     conversationReadListeners.forEach((listener) => listener(payload));
@@ -194,6 +199,14 @@ export function subscribeToPresenceUpdate(
   presenceUpdateListeners.add(listener);
 
   return () => presenceUpdateListeners.delete(listener);
+}
+
+export function subscribeToPresenceInvalidate(
+  listener: PresenceInvalidateListener,
+): () => void {
+  presenceInvalidateListeners.add(listener);
+
+  return () => presenceInvalidateListeners.delete(listener);
 }
 
 export function subscribeToConversationRead(

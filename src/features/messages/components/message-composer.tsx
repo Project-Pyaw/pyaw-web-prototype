@@ -172,11 +172,11 @@ export function MessageComposer({
   return (
     <form
       ref={formRef}
-      className="chat-composer shrink-0 border-t border-border bg-surface px-5 pt-4 sm:px-8"
+      className="chat-composer sticky bottom-0 z-10 shrink-0 border-t border-border bg-surface px-4 pt-3 sm:px-8"
       onSubmit={handleSubmit}
     >
       {replyTo ? (
-        <div className="mb-3 flex items-start gap-2 rounded-xl border border-border bg-surface-muted p-2">
+        <div className="mb-2 flex items-start gap-2 rounded-xl border border-border bg-surface-muted p-2">
           <div className="min-w-0 flex-1">
             <p className="mb-1 text-xs font-medium text-foreground-muted">
               Replying to
@@ -207,7 +207,7 @@ export function MessageComposer({
         </div>
       ) : null}
       {selectedImage ? (
-        <div className="mb-3 flex items-start gap-3 rounded-xl border border-border bg-surface-muted p-2">
+        <div className="mb-2 flex items-start gap-3 rounded-xl border border-border bg-surface-muted p-2">
           {/* The object URL exists only for this unsent local preview. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -249,7 +249,7 @@ export function MessageComposer({
       <label className="sr-only" htmlFor="message-content">
         Message
       </label>
-      <div className="flex items-end gap-3">
+      <div className="flex items-end gap-2.5">
         <input
           ref={imageInputRef}
           accept="image/gif,image/jpeg,image/png,image/webp"
@@ -261,7 +261,7 @@ export function MessageComposer({
         />
         <button
           aria-label="Choose image"
-          className="grid size-12 shrink-0 place-items-center rounded-full border border-border text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="grid size-11 shrink-0 place-items-center rounded-full border border-border text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 sm:size-12"
           disabled={isSending}
           onClick={() => imageInputRef.current?.click()}
           type="button"
@@ -286,7 +286,7 @@ export function MessageComposer({
           ref={textareaRef}
           aria-describedby={error ? "message-composer-error" : undefined}
           aria-label="Message"
-          className="min-h-12 flex-1 resize-none rounded-full border border-border bg-input px-5 py-3 text-base leading-5 text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
+          className="min-h-11 flex-1 resize-none rounded-2xl border border-border bg-input px-4 py-3 text-base leading-5 text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20 sm:min-h-12 sm:rounded-full sm:px-5"
           id="message-content"
           maxLength={MAX_TEXT_MESSAGE_LENGTH + 1}
           disabled={isSending}
@@ -304,7 +304,7 @@ export function MessageComposer({
         />
         <button
           aria-label="Send message"
-          className="grid size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:size-12"
           disabled={!canSend || isSending}
           type="submit"
         >

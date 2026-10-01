@@ -240,6 +240,10 @@ export function getCurrentAccessToken(): string | undefined {
   return accessToken;
 }
 
+export function getSessionVersion(): number {
+  return sessionVersion;
+}
+
 export function subscribeToSession(listener: SessionListener): () => void {
   listeners.add(listener);
 

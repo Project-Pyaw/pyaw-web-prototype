@@ -38,10 +38,7 @@ function ProfileHeader({
           <span className="hidden text-sm font-medium text-foreground lg:block">
             {username ? `@${username}` : identity}
           </span>
-          <span className="relative">
-            <ProfileAvatar name={identity} size="sm" url={avatar} />
-            <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-surface bg-emerald-500" />
-          </span>
+          <ProfileAvatar name={identity} size="sm" url={avatar} />
         </div>
       }
       onBrandClick={() => onNavigate("chats")}
@@ -238,14 +235,11 @@ export function ProfileScreen() {
         onNavigate={navigateFromProfile}
         username={account.username}
       />
-      <div className="grid min-h-0 flex-1 bg-background lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 bg-background lg:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)]">
         <aside className="hidden min-h-0 border-r border-border bg-surface p-5 lg:block">
           <div className="rounded-2xl bg-input p-4">
             <div className="flex items-center gap-3">
-              <span className="relative">
-                <ProfileAvatar name={identity} size="md" url={profile.avatar} />
-                <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-input bg-emerald-500" />
-              </span>
+              <ProfileAvatar name={identity} size="md" url={profile.avatar} />
               <div className="min-w-0">
                 <p className="truncate text-base font-semibold text-foreground">
                   {identity}
@@ -281,7 +275,7 @@ export function ProfileScreen() {
           </div>
         </aside>
         <div className="min-h-0 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+          <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-10">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-3xl font-semibold tracking-tight text-foreground">
@@ -303,7 +297,7 @@ export function ProfileScreen() {
             </div>
             <section
               aria-labelledby="profile-details-title"
-              className="mt-8 rounded-2xl border border-border bg-surface p-5 sm:p-7"
+              className="mt-8 rounded-3xl border border-border bg-surface p-5 sm:p-7"
             >
               <div className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-center">
                 <span className="relative w-fit">
@@ -385,7 +379,7 @@ export function ProfileScreen() {
                 Control notification behaviors, security parameters, and
                 conversation privacy.
               </p>
-              <div className="mt-7 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+              <div className="mt-7 divide-y divide-border overflow-hidden rounded-3xl border border-border bg-surface">
                 <SettingRow
                   description="Play soft chime on new incoming direct messages"
                   title="Sound Alerts"

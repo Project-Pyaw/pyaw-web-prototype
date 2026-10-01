@@ -4,6 +4,7 @@ import type { ReplyMessagePreview } from "../types";
 
 type MessageReplyPreviewProps = Readonly<{
   onClick?: () => void;
+  outgoing?: boolean;
   replyTo: ReplyMessagePreview;
 }>;
 
@@ -24,11 +25,13 @@ function ReplyPreviewContent({
   if (replyTo.deleted) {
     return (
       <>
-        <span className="block truncate text-xs font-semibold">
+        <span className="block truncate text-xs font-semibold leading-4">
           {senderName}
-          {username}
+          {username ? (
+            <span className="font-medium opacity-75">{username}</span>
+          ) : null}
         </span>
-        <span className="mt-0.5 block truncate text-xs opacity-75">
+        <span className="mt-1 block truncate text-xs leading-4 opacity-70">
           Original message deleted
         </span>
       </>
@@ -37,18 +40,20 @@ function ReplyPreviewContent({
 
   return (
     <>
-      <span className="block truncate text-xs font-semibold">
+      <span className="block truncate text-xs font-semibold leading-4">
         {senderName}
-        {username}
+        {username ? (
+          <span className="font-medium opacity-75">{username}</span>
+        ) : null}
       </span>
       {replyTo.content ? (
-        <span className="mt-0.5 block truncate text-xs opacity-80">
+        <span className="mt-1 block truncate text-xs leading-4 opacity-70">
           {replyTo.content}
         </span>
       ) : null}
       {replyTo.hasAttachments ? (
-        <span className="mt-0.5 block truncate text-xs opacity-80">
-          Attachment
+        <span className="mt-1 block truncate text-xs leading-4 opacity-70">
+          Photo
         </span>
       ) : null}
     </>
@@ -57,10 +62,14 @@ function ReplyPreviewContent({
 
 export function MessageReplyPreview({
   onClick,
+  outgoing = false,
   replyTo,
 }: MessageReplyPreviewProps) {
-  const className =
-    "block w-full border-l-2 border-current/40 bg-black/5 px-2.5 py-2 text-left text-inherit dark:bg-white/10";
+  const className = `block w-full rounded-lg border-l-2 px-3 py-2.5 text-left text-inherit ${
+    outgoing
+      ? "border-message-outgoing-foreground/60 bg-message-outgoing-foreground/10"
+      : "border-primary/55 bg-surface-muted/80"
+  }`;
 
   return onClick ? (
     <button
@@ -68,14 +77,14 @@ export function MessageReplyPreview({
         replyTo.sender.profile?.displayName ?? null,
         replyTo.sender.username,
       )}`}
-      className={`${className} rounded-md transition-colors hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 dark:hover:bg-white/15`}
+      className={`${className} transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40`}
       onClick={onClick}
       type="button"
     >
       <ReplyPreviewContent replyTo={replyTo} />
     </button>
   ) : (
-    <div className={`${className} rounded-md`}>
+    <div className={className}>
       <ReplyPreviewContent replyTo={replyTo} />
     </div>
   );

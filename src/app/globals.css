@@ -4,13 +4,13 @@
   /* Mirrors Pyaw mobile's light theme and chat treatment. */
   --pyaw-background: #faf8ff;
   --pyaw-surface: #ffffff;
-  --pyaw-surface-muted: #f7f7ff;
+  --pyaw-surface-muted: #f4f3ff;
   --pyaw-foreground: #172038;
   --pyaw-foreground-muted: #7c6d70;
-  --pyaw-border: #e7e8f6;
+  --pyaw-border: #e5e6f3;
   --pyaw-primary: #e11d48;
   --pyaw-primary-foreground: #ffffff;
-  --pyaw-input: #f4f3ff;
+  --pyaw-input: #f2f2ff;
   --pyaw-focus: #e11d48;
   --pyaw-danger: #ba1a1a;
   --pyaw-message-outgoing: #e11d48;

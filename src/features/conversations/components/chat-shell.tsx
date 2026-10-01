@@ -84,17 +84,14 @@ export function ChatShell({
                 </span>
               ) : null}
             </span>
-            <span className="relative">
-              <ProfileAvatar
-                name={getProfileDisplayName(
-                  currentProfile.displayName,
-                  currentAccount.username,
-                )}
-                size="sm"
-                url={currentProfile.avatar}
-              />
-              <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-surface bg-emerald-500" />
-            </span>
+            <ProfileAvatar
+              name={getProfileDisplayName(
+                currentProfile.displayName,
+                currentAccount.username,
+              )}
+              size="sm"
+              url={currentProfile.avatar}
+            />
           </button>
         }
         onBrandClick={() => {
@@ -117,7 +114,7 @@ export function ChatShell({
       {workspace === "connections" ? (
         <ConnectionsPanel currentAccountId={currentAccount.id} />
       ) : (
-        <div className="grid min-h-0 flex-1 md:grid-cols-[clamp(18rem,28vw,22rem)_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 md:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)]">
           <div
             className={`${
               showConversation ? "hidden md:flex" : "flex"

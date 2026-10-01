@@ -161,16 +161,12 @@ function PeopleInspector({
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <div className="flex flex-col items-center text-center">
-          <span className="relative">
-            <ProfileAvatar
-              name={identity}
-              size="lg"
-              url={person.account.profile?.avatar ?? null}
-            />
-            {presence?.status === "ONLINE" ? (
-              <span className="absolute bottom-0 right-0 size-4 rounded-full border-2 border-surface bg-emerald-500" />
-            ) : null}
-          </span>
+          <ProfileAvatar
+            name={identity}
+            presenceStatus={presence?.status}
+            size="lg"
+            url={person.account.profile?.avatar ?? null}
+          />
           <h3 className="mt-4 text-xl font-semibold text-foreground">
             {identity}
           </h3>
@@ -276,13 +272,13 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
   );
 
   return (
-    <div className="relative grid h-full min-h-0 overflow-hidden bg-background md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)_20rem]">
+    <div className="relative grid h-full min-h-0 overflow-hidden bg-background md:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)] xl:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)_22rem]">
       <aside
         className={`${
           mobilePane === "requests" ? "flex" : "hidden"
         } min-h-0 flex-col border-r border-border bg-surface md:flex`}
       >
-        <header className="border-b border-border p-4">
+        <header className="border-b border-border px-5 pb-4 pt-5">
           <div className="flex min-h-11 items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-semibold tracking-tight text-foreground">
@@ -302,7 +298,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
               People
             </button>
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-surface-muted p-1">
+          <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-surface-muted p-1">
             {(
               [
                 ["all", "All People", undefined],
@@ -314,7 +310,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
                 aria-pressed={filter === value}
                 className={`min-h-11 rounded-lg px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 ${
                   filter === value
-                    ? "bg-surface text-foreground"
+                    ? "bg-surface text-foreground shadow-sm"
                     : "text-foreground-muted hover:bg-surface/70 hover:text-foreground"
                 }`}
                 key={value}
@@ -332,7 +328,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-5">
           {showIncoming ? (
             <section
               aria-busy={incoming.isPending}
@@ -439,7 +435,7 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
           mobilePane === "people" ? "flex" : "hidden"
         } min-h-0 min-w-0 flex-col bg-surface md:flex`}
       >
-        <header className="border-b border-border p-4">
+        <header className="border-b border-border px-5 pb-4 pt-5 sm:px-6">
           <div className="mb-3 flex items-center gap-3 md:hidden">
             <button
               className="min-h-11 rounded-full border border-border px-4 text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"

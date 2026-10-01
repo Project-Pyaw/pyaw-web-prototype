@@ -8,6 +8,8 @@ import {
   getProfileDisplayName,
   ProfileAvatar,
 } from "@/features/profile/components/profile-avatar";
+import { usePresenceSnapshots } from "@/features/messages/hooks/use-presence-snapshots";
+import type { PresenceSnapshot } from "@/features/messages/api/presence-api";
 
 import {
   useConversations,
@@ -56,10 +58,12 @@ function ConversationRowSkeleton() {
 function ConversationRow({
   conversation,
   notes = false,
+  presenceStatus,
   selected,
 }: Readonly<{
   conversation: ConversationListItem;
   notes?: boolean;
+  presenceStatus?: PresenceSnapshot["status"];
   selected: boolean;
 }>) {
   const router = useRouter();
@@ -79,7 +83,7 @@ function ConversationRow({
   return (
     <button
       aria-current={selected ? "page" : undefined}
-      className={`relative flex min-h-[4.5rem] w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
+      className={`relative flex min-h-[4.75rem] w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
         selected
           ? "bg-surface-muted before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-primary"
           : "hover:bg-surface-muted"
@@ -89,6 +93,7 @@ function ConversationRow({
     >
       <ProfileAvatar
         name={identity}
+        presenceStatus={presenceStatus}
         url={
           isSelf ? null : (conversation.counterpart?.profile?.avatar ?? null)
         }
@@ -151,6 +156,13 @@ export function ConversationSidebar({
   const directConversations = items.filter(
     (conversation) => conversation.type === "DIRECT",
   );
+  const presence = usePresenceSnapshots(
+    directConversations.flatMap((conversation) =>
+      conversation.counterpart?.accountId
+        ? [conversation.counterpart.accountId]
+        : [],
+    ),
+  );
   const identity = getProfileDisplayName(self.displayName, self.username);
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   const notesMatches =
@@ -180,14 +192,14 @@ export function ConversationSidebar({
 
   return (
     <aside className="flex min-h-0 flex-1 flex-col bg-surface">
-      <div className="space-y-3 px-5 pb-4 pt-5">
+      <div className="space-y-3 border-b border-border px-5 pb-4 pt-5">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight text-foreground">
             Chats
           </h1>
           <span
             aria-hidden="true"
-            className="text-2xl font-light text-foreground-muted"
+            className="grid size-9 place-items-center rounded-full text-xl font-light text-foreground-muted"
           >
             +
           </span>
@@ -217,7 +229,7 @@ export function ConversationSidebar({
             />
           </svg>
           <input
-            className="min-h-[3.25rem] w-full rounded-xl border border-border bg-input py-2 pl-10 pr-9 text-base text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
+            className="min-h-11 w-full rounded-full border border-border bg-input py-2 pl-10 pr-9 text-base text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
             id="conversation-search"
             onChange={(event) => setSearchQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -249,7 +261,7 @@ export function ConversationSidebar({
         >
           <button
             aria-pressed={filter === "all"}
-            className={`min-h-8 rounded-full px-3 text-sm font-semibold transition-colors ${filter === "all" ? "bg-primary/5 text-primary" : "text-foreground-muted hover:bg-surface-muted"}`}
+            className={`min-h-8 rounded-full px-3 text-sm font-semibold transition-colors ${filter === "all" ? "bg-primary/10 text-primary" : "text-foreground-muted hover:bg-surface-muted"}`}
             onClick={() => setFilter("all")}
             type="button"
           >
@@ -303,7 +315,7 @@ export function ConversationSidebar({
       ) : null}
       <div
         aria-busy={conversationsQuery.isPending}
-        className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2"
+        className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-2"
       >
         <div className="flex items-center justify-between px-3 pb-2 pt-3">
           <h2 className="text-xs font-bold uppercase tracking-wider text-foreground-muted">
@@ -354,6 +366,11 @@ export function ConversationSidebar({
           <ConversationRow
             key={conversation.id}
             conversation={conversation}
+            presenceStatus={
+              conversation.counterpart?.accountId
+                ? presence[conversation.counterpart.accountId]?.status
+                : undefined
+            }
             selected={conversation.id === selectedConversationId}
           />
         ))}

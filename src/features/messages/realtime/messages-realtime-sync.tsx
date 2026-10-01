@@ -16,6 +16,8 @@ import {
   subscribeToMessageReactionsUpdated,
   subscribeToConversationRead,
   subscribeToMessagesSocketConnectionState,
+  subscribeToPresenceInvalidate,
+  subscribeToPresenceUpdate,
 } from "@/lib/socket/messages-socket";
 
 import {
@@ -34,6 +36,13 @@ import { mapMessageNewEvent } from "./message-new";
 import { mapConversationReadEvent } from "./conversation-read";
 import { mapMessageDeletedEvent } from "./message-deleted";
 import { mapMessageReactionsUpdatedEvent } from "./message-reactions-updated";
+import { mapPresenceInvalidateEvent } from "./presence-invalidate";
+import { mapPresenceUpdateEvent } from "./presence-update";
+import {
+  applyPresenceUpdate,
+  invalidatePresence,
+  presenceQueryKey,
+} from "../hooks/use-presence-snapshots";
 
 export function MessagesRealtimeSync() {
   const { status } = useSessionStatus();
@@ -153,6 +162,26 @@ export function MessagesRealtimeSync() {
           );
         }
       });
+    const unsubscribePresenceUpdate = subscribeToPresenceUpdate((payload) => {
+      const presence = mapPresenceUpdateEvent(payload);
+
+      if (presence && currentAccountId) {
+        applyPresenceUpdate(queryClient, currentAccountId, presence);
+      }
+    });
+    const unsubscribePresenceInvalidate = subscribeToPresenceInvalidate(
+      (payload) => {
+        const invalidation = mapPresenceInvalidateEvent(payload);
+
+        if (invalidation && currentAccountId) {
+          invalidatePresence(
+            queryClient,
+            currentAccountId,
+            invalidation.accountId,
+          );
+        }
+      },
+    );
     const unsubscribeConnectionState = subscribeToMessagesSocketConnectionState(
       () => {
         if (getMessagesSocketConnectionState() !== "connected") {
@@ -167,6 +196,10 @@ export function MessagesRealtimeSync() {
           queryKey: conversationsQueryKey,
           refetchType: "active",
         });
+        queryClient.invalidateQueries({
+          queryKey: presenceQueryKey,
+          refetchType: "active",
+        });
       },
     );
 
@@ -178,6 +211,8 @@ export function MessagesRealtimeSync() {
       unsubscribeMessageUpdated();
       unsubscribeMessageDeleted();
       unsubscribeMessageReactionsUpdated();
+      unsubscribePresenceUpdate();
+      unsubscribePresenceInvalidate();
       unsubscribeConnectionState();
       stopMessagesSocket();
     };

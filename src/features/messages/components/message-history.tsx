@@ -22,6 +22,7 @@ type MessageHistoryProps = Readonly<{
   conversationType: "DIRECT" | "SELF";
   counterpart?: Readonly<{
     avatar: string | null;
+    presenceStatus?: "ONLINE" | "OFFLINE" | "UNKNOWN";
     name: string;
   }>;
   currentAccountId: string;
@@ -76,26 +77,33 @@ function formatMessageDay(value: string): string | null {
   }).format(date);
 }
 
-function isGroupEnd(
+function isSameMessageGroup(
   message: MessageHistoryItem | OptimisticMessage,
-  nextMessage: MessageHistoryItem | OptimisticMessage | undefined,
+  adjacentMessage: MessageHistoryItem | OptimisticMessage | undefined,
   currentAccountId: string,
 ): boolean {
+  if (!adjacentMessage) {
+    return false;
+  }
+
   const outgoing =
     isOptimisticMessage(message) ||
     message.sender.accountId === currentAccountId;
-  const nextOutgoing = nextMessage
-    ? isOptimisticMessage(nextMessage) ||
-      nextMessage.sender.accountId === currentAccountId
-    : undefined;
+  const adjacentOutgoing =
+    isOptimisticMessage(adjacentMessage) ||
+    adjacentMessage.sender.accountId === currentAccountId;
+  const sameSender =
+    isOptimisticMessage(message) || isOptimisticMessage(adjacentMessage)
+      ? outgoing === adjacentOutgoing
+      : message.sender.accountId === adjacentMessage.sender.accountId;
 
   return (
-    !nextMessage ||
-    outgoing !== nextOutgoing ||
-    new Date(nextMessage.createdAt).toDateString() !==
-      new Date(message.createdAt).toDateString() ||
-    Date.parse(nextMessage.createdAt) - Date.parse(message.createdAt) >
-      MESSAGE_GROUP_GAP_MS
+    sameSender &&
+    new Date(adjacentMessage.createdAt).toDateString() ===
+      new Date(message.createdAt).toDateString() &&
+    Math.abs(
+      Date.parse(adjacentMessage.createdAt) - Date.parse(message.createdAt),
+    ) <= MESSAGE_GROUP_GAP_MS
   );
 }
 
@@ -195,6 +203,7 @@ export function MessageHistory({
   const shouldFollowLatestRef = useRef(true);
   const onReadIncomingRef = useRef(onReadIncoming);
   const messageElementRefs = useRef(new Map<string, HTMLElement>());
+  const reactionPickerRef = useRef<HTMLDivElement>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     string | null
@@ -210,6 +219,9 @@ export function MessageHistory({
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<
     string | null
   >(null);
+  const [openMessageMenuId, setOpenMessageMenuId] = useState<string | null>(
+    null,
+  );
   const messages =
     history.data?.pages
       .toReversed()
@@ -225,6 +237,15 @@ export function MessageHistory({
       ) ?? [];
   const isEmpty =
     !history.isPending && !history.isError && messages.length === 0;
+  const hasActiveReactionPickerMessage = Boolean(
+    reactionPickerMessageId &&
+    messages.some(
+      (message) =>
+        !isOptimisticMessage(message) &&
+        message.id === reactionPickerMessageId &&
+        message.deletedAt === null,
+    ),
+  );
   const latestIncomingMessage = messages.findLast(
     (message): message is MessageHistoryItem =>
       !isOptimisticMessage(message) &&
@@ -314,7 +335,44 @@ export function MessageHistory({
   useEffect(() => {
     cancelEditing();
     setReactionPickerMessageId(null);
+    setOpenMessageMenuId(null);
   }, [conversationId]);
+
+  useEffect(() => {
+    if (!reactionPickerMessageId) {
+      return;
+    }
+
+    if (!hasActiveReactionPickerMessage) {
+      setReactionPickerMessageId(null);
+      return;
+    }
+
+    function closeOnOutsideInteraction(event: PointerEvent): void {
+      if (
+        event.target instanceof Node &&
+        reactionPickerRef.current?.contains(event.target)
+      ) {
+        return;
+      }
+
+      setReactionPickerMessageId(null);
+    }
+
+    function closeOnEscape(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setReactionPickerMessageId(null);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideInteraction);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideInteraction);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [hasActiveReactionPickerMessage, reactionPickerMessageId]);
 
   function handleScroll() {
     const container = scrollRef.current;
@@ -435,7 +493,7 @@ export function MessageHistory({
           />
         ) : null}
         <div
-          className={`mx-auto flex min-h-full w-full max-w-5xl flex-col gap-1 ${
+          className={`mx-auto flex min-h-full w-full max-w-5xl flex-col gap-px ${
             isEmpty ? "justify-center" : "justify-end"
           } ${history.isPending ? "hidden" : ""}`}
         >
@@ -477,12 +535,17 @@ export function MessageHistory({
               : seen
                 ? "seen"
                 : "sent";
-            const groupEnd = isGroupEnd(
+            const previousMessage = messages[index - 1];
+            const groupStart = !isSameMessageGroup(
+              message,
+              previousMessage,
+              currentAccountId,
+            );
+            const groupEnd = !isSameMessageGroup(
               message,
               messages[index + 1],
               currentAccountId,
             );
-            const previousMessage = messages[index - 1];
             const showDateSeparator =
               !previousMessage ||
               new Date(previousMessage.createdAt).toDateString() !==
@@ -508,27 +571,17 @@ export function MessageHistory({
               message.sender.accountId === currentAccountId;
             const canEdit = canDelete && message.attachments.length === 0;
             const editing = !optimistic && editingMessageId === message.id;
-            const showIncomingTail =
-              !isImageOnlyMessage &&
-              !outgoing &&
-              conversationType === "DIRECT" &&
-              groupEnd;
-
             const messageBody = (
-              <div className="min-w-0 max-w-[85%] sm:max-w-[min(36rem,70vw)]">
+              <div className="min-w-0 max-w-[88%] sm:max-w-[min(52rem,76vw)]">
                 <div
-                  className={`text-sm leading-5 ${
+                  className={`relative text-sm leading-5 ${
                     deleted
                       ? "rounded-2xl border border-border bg-surface px-3.5 py-2 text-foreground-muted"
                       : isImageOnlyMessage
                         ? "p-0"
                         : outgoing
-                          ? "rounded-2xl rounded-tr-md bg-message-outgoing px-3.5 py-2 text-message-outgoing-foreground"
-                          : "rounded-2xl border border-border/70 bg-message-incoming px-3.5 py-2 text-message-incoming-foreground"
-                  } ${
-                    showIncomingTail
-                      ? "relative rounded-bl-md after:absolute after:-bottom-px after:-left-1 after:size-3 after:bg-message-incoming after:[clip-path:polygon(100%_0,100%_100%,0_100%)]"
-                      : ""
+                          ? `relative rounded-[1.6rem] bg-message-outgoing px-4 py-3 text-message-outgoing-foreground ${groupStart ? "rounded-tr-lg" : "rounded-tr-xl"} ${groupEnd ? "rounded-br-lg" : "rounded-br-xl"}`
+                          : `relative rounded-[1.6rem] border border-border/70 bg-message-incoming px-4 py-3 text-message-incoming-foreground ${groupStart ? "rounded-tl-lg" : "rounded-tl-xl"} ${groupEnd ? "rounded-bl-lg" : "rounded-bl-xl"}`
                   }`}
                 >
                   {deleted ? (
@@ -579,9 +632,10 @@ export function MessageHistory({
                   ) : (
                     <>
                       {replyTo ? (
-                        <div className="mb-2">
+                        <div className="mb-2.5">
                           <MessageReplyPreview
                             onClick={() => scrollToMessage(replyTo.messageId)}
+                            outgoing={outgoing}
                             replyTo={replyTo}
                           />
                         </div>
@@ -603,11 +657,53 @@ export function MessageHistory({
                           {message.content}
                         </p>
                       ) : null}
+                      {!optimistic && !deleted ? (
+                        <MessageActions
+                          canDelete={canDelete}
+                          canEdit={canEdit}
+                          isPending={messageActions.isPending(message.id)}
+                          message={message}
+                          onDelete={() => void deleteForEveryone(message)}
+                          onEdit={() => beginEditing(message)}
+                          onReply={() => onReply(message)}
+                          menuOpen={openMessageMenuId === message.id}
+                          onMenuOpenChange={(open) => {
+                            setOpenMessageMenuId(open ? message.id : null);
+                            if (open) {
+                              setReactionPickerMessageId(null);
+                            }
+                          }}
+                          onToggleReaction={(reaction, reactedByMe) =>
+                            messageReactions.toggleReaction({
+                              messageId: message.id,
+                              reaction,
+                              reactedByMe,
+                            })
+                          }
+                          outgoing={outgoing}
+                        />
+                      ) : null}
                     </>
                   )}
                 </div>
+                {!optimistic && !deleted ? (
+                  <MessageReactions
+                    isPending={messageReactions.isPending}
+                    message={message}
+                    onPickerOpenChange={(open) => {
+                      setReactionPickerMessageId(open ? message.id : null);
+                      if (open) {
+                        setOpenMessageMenuId(null);
+                      }
+                    }}
+                    onToggle={messageReactions.toggleReaction}
+                    outgoing={outgoing}
+                    pickerOpen={reactionPickerMessageId === message.id}
+                    pickerRef={reactionPickerRef}
+                  />
+                ) : null}
                 <div
-                  className={`mt-1 flex items-center gap-1.5 px-1 text-[11px] text-foreground-muted ${
+                  className={`mt-1.5 flex items-center gap-1.5 px-1 text-[11px] text-foreground-muted ${
                     outgoing ? "justify-end" : "justify-start"
                   }`}
                 >
@@ -621,19 +717,6 @@ export function MessageHistory({
                   {deliveryState === "failed" ? (
                     <span className="font-medium text-danger">Failed</span>
                   ) : null}
-                  {!optimistic && !deleted ? (
-                    <MessageActions
-                      canDelete={canDelete}
-                      canEdit={canEdit}
-                      isPending={messageActions.isPending(message.id)}
-                      message={message}
-                      onDelete={() => void deleteForEveryone(message)}
-                      onEdit={() => beginEditing(message)}
-                      onReact={() => setReactionPickerMessageId(message.id)}
-                      onReply={() => onReply(message)}
-                      outgoing={outgoing}
-                    />
-                  ) : null}
                 </div>
                 {!optimistic &&
                 !editing &&
@@ -641,18 +724,6 @@ export function MessageHistory({
                   <p className="mt-1 px-1 text-xs text-danger" role="alert">
                     {messageActionError}
                   </p>
-                ) : null}
-                {!optimistic && !deleted ? (
-                  <MessageReactions
-                    isPending={messageReactions.isPending}
-                    message={message}
-                    onPickerOpenChange={(open) =>
-                      setReactionPickerMessageId(open ? message.id : null)
-                    }
-                    onToggle={messageReactions.toggleReaction}
-                    outgoing={outgoing}
-                    pickerOpen={reactionPickerMessageId === message.id}
-                  />
                 ) : null}
                 {optimistic && message.deliveryState === "failed" ? (
                   <div className="mt-1 flex items-center justify-end gap-2 text-xs text-danger">
@@ -678,7 +749,7 @@ export function MessageHistory({
                   </div>
                 ) : null}
                 <article
-                  className={`group flex transition-shadow ${outgoing ? "justify-end" : "justify-start"} ${groupEnd ? "mb-3" : ""} ${
+                  className={`group flex transition-shadow ${outgoing ? "justify-end" : "justify-start"} ${groupEnd ? "mb-4" : ""} ${
                     !optimistic && highlightedMessageId === message.id
                       ? "rounded-xl ring-2 ring-focus/40 ring-offset-2 ring-offset-surface-muted"
                       : ""
@@ -697,18 +768,20 @@ export function MessageHistory({
                   }}
                 >
                   {!outgoing && conversationType === "DIRECT" ? (
-                    <div className="flex max-w-full items-end gap-2">
+                    <div className="relative max-w-full pl-10">
                       {showIncomingAvatar ? (
-                        <span aria-hidden="true">
+                        <span
+                          aria-hidden="true"
+                          className="absolute left-0 top-0 z-10 overflow-visible"
+                        >
                           <ProfileAvatar
                             name={counterpart.name}
+                            presenceStatus={counterpart.presenceStatus}
                             size="sm"
                             url={counterpart.avatar}
                           />
                         </span>
-                      ) : (
-                        <span aria-hidden="true" className="size-8 shrink-0" />
-                      )}
+                      ) : null}
                       {messageBody}
                     </div>
                   ) : (

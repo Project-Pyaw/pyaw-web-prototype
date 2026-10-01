@@ -64,6 +64,7 @@ export function ConversationEmptyState({
   });
   const presence = useCounterpartPresence(
     isSelf ? undefined : conversation?.counterpart?.accountId,
+    !isSelf,
   );
   const lastSeen =
     presence?.status === "OFFLINE" && presence.lastSeenAt
@@ -75,10 +76,8 @@ export function ConversationEmptyState({
       ? "typing…"
       : presence?.status === "ONLINE"
         ? "Online"
-        : presence?.status === "OFFLINE"
-          ? lastSeen
-            ? `Offline · ${lastSeen}`
-            : "Offline"
+        : lastSeen
+          ? `Last seen ${lastSeen}`
           : conversation?.counterpart?.username
             ? `@${conversation.counterpart.username}`
             : "";
@@ -153,7 +152,7 @@ export function ConversationEmptyState({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
-      <header className="flex min-h-[5.5rem] items-center justify-between gap-3 border-b border-border px-5 py-3 sm:px-8">
+      <header className="flex min-h-[4.75rem] items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 sm:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <button
             aria-label="Back to chats"
@@ -166,6 +165,7 @@ export function ConversationEmptyState({
           {!isSelf ? (
             <ProfileAvatar
               name={identity}
+              presenceStatus={presence?.status}
               size="header"
               url={conversation.counterpart?.profile?.avatar ?? null}
             />
@@ -176,18 +176,8 @@ export function ConversationEmptyState({
             </h2>
             <p
               aria-live="polite"
-              className="mt-1 flex min-h-5 items-center gap-1.5 truncate text-sm text-foreground-muted"
+              className={`mt-1 flex min-h-5 items-center gap-1.5 truncate text-sm ${typing.isCounterpartTyping ? "text-primary" : "text-foreground-muted"}`}
             >
-              {!isSelf && presence ? (
-                <span
-                  aria-hidden="true"
-                  className={`size-2 shrink-0 rounded-full ${
-                    presence.status === "ONLINE"
-                      ? "bg-emerald-500"
-                      : "bg-foreground-muted"
-                  }`}
-                />
-              ) : null}
               <span className="truncate">{secondaryText}</span>
             </p>
           </div>
@@ -264,6 +254,7 @@ export function ConversationEmptyState({
             ? undefined
             : {
                 avatar: conversation.counterpart?.profile?.avatar ?? null,
+                presenceStatus: presence?.status,
                 name: identity,
               }
         }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 type ProfileAvatarProps = Readonly<{
   name: string;
+  presenceStatus?: "ONLINE" | "OFFLINE" | "UNKNOWN";
   size?: "sm" | "header" | "md" | "lg";
   url: string | null;
 }>;
@@ -13,6 +14,18 @@ const avatarSizeClassNames = {
   lg: "size-24 text-3xl sm:size-28",
   md: "size-12 text-sm",
   sm: "size-8 text-xs",
+} as const;
+
+const onlineDotSizeClassNames = {
+  header: "size-3",
+  lg: "size-4",
+  md: "size-3",
+  sm: "size-2.5",
+} as const;
+
+const presenceDotColorClassNames = {
+  OFFLINE: "bg-foreground-muted",
+  ONLINE: "bg-emerald-500",
 } as const;
 
 export function getProfileDisplayName(
@@ -31,17 +44,23 @@ function getInitials(name: string): string {
     .join("");
 }
 
-export function ProfileAvatar({ name, size = "md", url }: ProfileAvatarProps) {
+export function ProfileAvatar({
+  name,
+  presenceStatus,
+  size = "md",
+  url,
+}: ProfileAvatarProps) {
   const [failedToLoad, setFailedToLoad] = useState(false);
   const initials = getInitials(name) || "P";
   const sizeClassName = avatarSizeClassNames[size];
+  const onlineDotSizeClassName = onlineDotSizeClassNames[size];
 
   useEffect(() => {
     setFailedToLoad(false);
   }, [url]);
 
-  if (url && !failedToLoad) {
-    return (
+  const avatar =
+    url && !failedToLoad ? (
       // Signed avatar URLs are backend-provided and may use different storage hosts.
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -50,14 +69,23 @@ export function ProfileAvatar({ name, size = "md", url }: ProfileAvatarProps) {
         onError={() => setFailedToLoad(true)}
         src={url}
       />
+    ) : (
+      <div
+        className={`grid ${sizeClassName} aspect-square shrink-0 place-items-center overflow-hidden rounded-full border border-primary/20 bg-avatar font-semibold text-primary`}
+      >
+        {initials}
+      </div>
     );
-  }
 
   return (
-    <div
-      className={`grid ${sizeClassName} aspect-square shrink-0 place-items-center overflow-hidden rounded-full border border-primary/20 bg-avatar font-semibold text-primary`}
-    >
-      {initials}
-    </div>
+    <span className="relative inline-flex shrink-0 overflow-visible">
+      {avatar}
+      {presenceStatus === "ONLINE" || presenceStatus === "OFFLINE" ? (
+        <span
+          aria-label={presenceStatus === "ONLINE" ? "Online" : "Offline"}
+          className={`absolute -bottom-0.5 -right-0.5 z-10 ${onlineDotSizeClassName} rounded-full border-2 border-surface ${presenceDotColorClassNames[presenceStatus]}`}
+        />
+      ) : null}
+    </span>
   );
 }
