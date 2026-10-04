@@ -3,7 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProfileAvatar } from "@/features/profile/components/profile-avatar";
+import {
+  getProfileDisplayName,
+  ProfileAvatar,
+} from "@/features/profile/components/profile-avatar";
 
 import { MessageImageAttachment } from "./message-image-attachment";
 import { MessageActions } from "./message-actions";
@@ -19,7 +22,7 @@ const MAX_TEXT_MESSAGE_LENGTH = 4_000;
 
 type MessageHistoryProps = Readonly<{
   conversationId: string;
-  conversationType: "DIRECT" | "SELF";
+  conversationType: "DIRECT" | "SELF" | "GROUP";
   counterpart?: Readonly<{
     avatar: string | null;
     presenceStatus?: "ONLINE" | "OFFLINE" | "UNKNOWN";
@@ -295,7 +298,7 @@ export function MessageHistory({
 
   useEffect(() => {
     if (
-      conversationType !== "DIRECT" ||
+      conversationType === "SELF" ||
       !history.data ||
       !latestIncomingMessage ||
       !shouldFollowLatestRef.current ||
@@ -310,7 +313,7 @@ export function MessageHistory({
   useEffect(() => {
     function handleVisibilityChange() {
       if (
-        conversationType !== "DIRECT" ||
+        conversationType === "SELF" ||
         document.visibilityState !== "visible" ||
         !shouldFollowLatestRef.current ||
         !latestIncomingMessage
@@ -390,7 +393,7 @@ export function MessageHistory({
       96;
 
     if (
-      conversationType === "DIRECT" &&
+      conversationType !== "SELF" &&
       shouldFollowLatestRef.current &&
       latestIncomingMessage &&
       document.visibilityState === "visible"
@@ -501,7 +504,7 @@ export function MessageHistory({
       >
         {history.isPending ? (
           <MessageHistorySkeleton
-            showIncomingAvatar={conversationType === "DIRECT"}
+            showIncomingAvatar={conversationType !== "SELF"}
           />
         ) : null}
         <div
@@ -576,9 +579,16 @@ export function MessageHistory({
               : null;
             const showIncomingAvatar =
               !outgoing &&
-              conversationType === "DIRECT" &&
+              conversationType !== "SELF" &&
               groupEnd &&
-              counterpart;
+              (conversationType === "GROUP" || counterpart);
+            const senderName =
+              !optimistic && !outgoing
+                ? getProfileDisplayName(
+                    message.sender.profile?.displayName,
+                    message.sender.username,
+                  )
+                : null;
             const imageAttachments = message.attachments.filter(
               (attachment) => attachment.kind === "IMAGE",
             );
@@ -797,18 +807,39 @@ export function MessageHistory({
                     messageElementRefs.current.delete(message.id);
                   }}
                 >
-                  {!outgoing && conversationType === "DIRECT" ? (
+                  {!outgoing && conversationType !== "SELF" ? (
                     <div className="relative max-w-full pl-10">
+                      {conversationType === "GROUP" &&
+                      groupStart &&
+                      senderName ? (
+                        <p className="mb-1 truncate px-1 text-xs font-semibold text-foreground-muted">
+                          {senderName}
+                        </p>
+                      ) : null}
                       {showIncomingAvatar ? (
                         <span
                           aria-hidden="true"
                           className="absolute left-0 top-0 z-10 overflow-visible"
                         >
                           <ProfileAvatar
-                            name={counterpart.name}
-                            presenceStatus={counterpart.presenceStatus}
+                            name={
+                              conversationType === "GROUP"
+                                ? (senderName ?? "Pyaw member")
+                                : (counterpart?.name ?? "Pyaw member")
+                            }
+                            presenceStatus={
+                              conversationType === "GROUP"
+                                ? undefined
+                                : counterpart?.presenceStatus
+                            }
                             size="sm"
-                            url={counterpart.avatar}
+                            url={
+                              conversationType === "GROUP"
+                                ? optimistic
+                                  ? null
+                                  : (message.sender.profile?.avatar ?? null)
+                                : (counterpart?.avatar ?? null)
+                            }
                           />
                         </span>
                       ) : null}

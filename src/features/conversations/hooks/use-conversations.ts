@@ -7,6 +7,7 @@ import {
 
 import {
   getConversations,
+  createGroupConversation,
   openDirectConversation,
   openSelfConversation,
 } from "../api/conversations-api";
@@ -48,6 +49,20 @@ export function useOpenSelfConversation() {
     mutationFn: openSelfConversation,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+    },
+  });
+}
+
+export function useCreateGroupConversation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createGroupConversation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: conversationsQueryKey,
+        refetchType: "active",
+      });
     },
   });
 }

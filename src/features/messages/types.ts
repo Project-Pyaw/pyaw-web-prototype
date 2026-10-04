@@ -18,6 +18,7 @@ export type ReplyMessagePreview = Readonly<{
     profile: Readonly<{
       id: string;
       displayName: string | null;
+      avatar: string | null;
     }> | null;
   }>;
   content: string | null;
@@ -58,6 +59,7 @@ export type MessageHistoryItem = Readonly<{
     profile: Readonly<{
       id: string;
       displayName: string | null;
+      avatar: string | null;
     }> | null;
   }>;
   readReceipt?: Readonly<{

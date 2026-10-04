@@ -47,24 +47,27 @@ export function ConversationEmptyState({
   const [replyTo, setReplyTo] = useState<ReplyMessagePreview | null>(null);
   const conversationId = conversation?.id;
   const isSelf = conversation?.type === "SELF";
+  const isGroup = conversation?.type === "GROUP";
   const identity = conversation
     ? isSelf
       ? (conversation.self?.label ?? "Notes")
-      : getProfileDisplayName(
-          conversation.counterpart?.profile?.displayName,
-          conversation.counterpart?.username,
-        )
+      : isGroup
+        ? (conversation.title ?? "Untitled group")
+        : getProfileDisplayName(
+            conversation.counterpart?.profile?.displayName,
+            conversation.counterpart?.username,
+          )
     : null;
   const messageSending = useSendMessage(conversation?.id ?? "");
   const markConversationRead = useMarkConversationRead();
   const typing = useConversationTyping({
     conversationId: conversation?.id ?? "",
-    conversationType: isSelf ? "SELF" : "DIRECT",
+    conversationType: conversation?.type ?? "SELF",
     currentAccountId,
   });
   const presence = useCounterpartPresence(
-    isSelf ? undefined : conversation?.counterpart?.accountId,
-    !isSelf,
+    !isSelf && !isGroup ? conversation?.counterpart?.accountId : undefined,
+    !isSelf && !isGroup,
   );
   const lastSeen =
     presence?.status === "OFFLINE" && presence.lastSeenAt
@@ -72,15 +75,19 @@ export function ConversationEmptyState({
       : null;
   const secondaryText = isSelf
     ? "Notes to yourself"
-    : typing.isCounterpartTyping
-      ? "typing…"
-      : presence?.status === "ONLINE"
-        ? "Online"
-        : lastSeen
-          ? `Last seen ${lastSeen}`
-          : conversation?.counterpart?.username
-            ? `@${conversation.counterpart.username}`
-            : "";
+    : isGroup
+      ? typing.isCounterpartTyping
+        ? "Someone is typing…"
+        : `${conversation?.memberCount ?? 0} members`
+      : typing.isCounterpartTyping
+        ? "typing…"
+        : presence?.status === "ONLINE"
+          ? "Online"
+          : lastSeen
+            ? `${lastSeen}`
+            : conversation?.counterpart?.username
+              ? `@${conversation.counterpart.username}`
+              : "";
 
   useEffect(() => {
     setReplyTo(null);
@@ -178,9 +185,13 @@ export function ConversationEmptyState({
           {!isSelf ? (
             <ProfileAvatar
               name={identity}
-              presenceStatus={presence?.status}
+              presenceStatus={isGroup ? undefined : presence?.status}
               size="header"
-              url={conversation.counterpart?.profile?.avatar ?? null}
+              url={
+                isGroup
+                  ? conversation.avatar
+                  : (conversation.counterpart?.profile?.avatar ?? null)
+              }
             />
           ) : null}
           <div className="min-w-0">
@@ -195,75 +206,77 @@ export function ConversationEmptyState({
             </p>
           </div>
         </div>
-        <div
-          aria-hidden="true"
-          className="hidden items-center gap-3 text-foreground-muted sm:flex"
-        >
-          <svg className="size-5" fill="none" viewBox="0 0 24 24">
-            <circle
-              cx="11"
-              cy="11"
-              r="6.5"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            />
-            <path
-              d="m16 16 4 4"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeWidth="1.8"
-            />
-          </svg>
-          <svg className="size-5" fill="none" viewBox="0 0 24 24">
-            <path
-              d="M5 4h3l2 5-2.5 1.5a12 12 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2C10.3 21 3 13.7 3 6a2 2 0 0 1 2-2Z"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.8"
-            />
-          </svg>
-          <svg className="size-5" fill="none" viewBox="0 0 24 24">
-            <rect
-              height="12"
-              rx="2"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              width="13"
-              x="3"
-              y="6"
-            />
-            <path
-              d="m16 10 4-2v8l-4-2"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.8"
-            />
-          </svg>
-          <svg className="size-5" fill="none" viewBox="0 0 24 24">
-            <circle
-              cx="12"
-              cy="12"
-              r="8"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            />
-            <path
-              d="M12 11v5m0-8h.01"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeWidth="1.8"
-            />
-          </svg>
-          <span className="text-xl leading-none">⋮</span>
-        </div>
+        {!isGroup ? (
+          <div
+            aria-hidden="true"
+            className="hidden items-center gap-3 text-foreground-muted sm:flex"
+          >
+            <svg className="size-5" fill="none" viewBox="0 0 24 24">
+              <circle
+                cx="11"
+                cy="11"
+                r="6.5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path
+                d="m16 16 4 4"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.8"
+              />
+            </svg>
+            <svg className="size-5" fill="none" viewBox="0 0 24 24">
+              <path
+                d="M5 4h3l2 5-2.5 1.5a12 12 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2C10.3 21 3 13.7 3 6a2 2 0 0 1 2-2Z"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.8"
+              />
+            </svg>
+            <svg className="size-5" fill="none" viewBox="0 0 24 24">
+              <rect
+                height="12"
+                rx="2"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                width="13"
+                x="3"
+                y="6"
+              />
+              <path
+                d="m16 10 4-2v8l-4-2"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.8"
+              />
+            </svg>
+            <svg className="size-5" fill="none" viewBox="0 0 24 24">
+              <circle
+                cx="12"
+                cy="12"
+                r="8"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path
+                d="M12 11v5m0-8h.01"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.8"
+              />
+            </svg>
+            <span className="text-xl leading-none">⋮</span>
+          </div>
+        ) : null}
       </header>
       <MessageHistory
         conversationId={conversation.id}
-        conversationType={isSelf ? "SELF" : "DIRECT"}
+        conversationType={conversation.type}
         counterpart={
-          isSelf
+          isSelf || isGroup
             ? undefined
             : {
                 avatar: conversation.counterpart?.profile?.avatar ?? null,

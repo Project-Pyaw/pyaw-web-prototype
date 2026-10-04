@@ -15,6 +15,7 @@ import {
   subscribeToMessageDeleted,
   subscribeToMessageReactionsUpdated,
   subscribeToConversationRead,
+  subscribeToConversationChanged,
   subscribeToMessagesSocketConnectionState,
   subscribeToPresenceInvalidate,
   subscribeToPresenceUpdate,
@@ -34,6 +35,7 @@ import {
 } from "../hooks/use-message-history";
 import { mapMessageNewEvent } from "./message-new";
 import { mapConversationReadEvent } from "./conversation-read";
+import { mapConversationChangedEvent } from "@/features/conversations/realtime/conversation-changed";
 import { mapMessageDeletedEvent } from "./message-deleted";
 import { mapMessageReactionsUpdatedEvent } from "./message-reactions-updated";
 import { mapPresenceInvalidateEvent } from "./presence-invalidate";
@@ -96,6 +98,26 @@ export function MessagesRealtimeSync() {
         }
 
         queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+      },
+    );
+    const unsubscribeConversationChanged = subscribeToConversationChanged(
+      (payload) => {
+        const change = mapConversationChangedEvent(payload);
+
+        if (!change) {
+          return;
+        }
+
+        // GROUP membership and metadata are server-authoritative. Invalidate
+        // rather than reconstructing state from a best-effort socket event.
+        queryClient.invalidateQueries({
+          queryKey: conversationsQueryKey,
+          refetchType: "active",
+        });
+        queryClient.invalidateQueries({
+          queryKey: messageHistoryQueryKey(change.conversationId),
+          refetchType: "active",
+        });
       },
     );
     const unsubscribeMessageUpdated = subscribeToMessageUpdated((payload) => {
@@ -208,6 +230,7 @@ export function MessagesRealtimeSync() {
     return () => {
       unsubscribeMessageNew();
       unsubscribeConversationRead();
+      unsubscribeConversationChanged();
       unsubscribeMessageUpdated();
       unsubscribeMessageDeleted();
       unsubscribeMessageReactionsUpdated();

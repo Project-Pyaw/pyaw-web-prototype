@@ -3,6 +3,7 @@ import { authenticatedApi } from "@/features/auth/session/session";
 import type {
   ConversationPage,
   ConversationReadState,
+  CreatedGroupConversation,
   OpenedConversation,
 } from "../types";
 
@@ -26,6 +27,23 @@ export function openSelfConversation(): Promise<OpenedConversation> {
     "/conversations/self",
     undefined,
   );
+}
+
+export function createGroupConversation(
+  input: Readonly<{
+    title: string;
+    memberAccountIds: readonly string[];
+    clientGroupId: string;
+  }>,
+): Promise<CreatedGroupConversation> {
+  return authenticatedApi.post<
+    CreatedGroupConversation,
+    {
+      title: string;
+      memberAccountIds: readonly string[];
+      clientGroupId: string;
+    }
+  >("/conversations/groups", input);
 }
 
 export function markConversationRead(

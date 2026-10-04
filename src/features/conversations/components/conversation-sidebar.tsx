@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -16,6 +16,7 @@ import {
   useOpenSelfConversation,
 } from "../hooks/use-conversations";
 import { formatConversationActivity } from "../conversation-presentation";
+import { CreateGroupDialog } from "./create-group-dialog";
 import type { ConversationListItem } from "../types";
 
 type ConversationSidebarProps = Readonly<{
@@ -68,12 +69,15 @@ function ConversationRow({
 }>) {
   const router = useRouter();
   const isSelf = conversation.type === "SELF";
+  const isGroup = conversation.type === "GROUP";
   const identity = isSelf
     ? (conversation.self?.label ?? "Notes")
-    : getProfileDisplayName(
-        conversation.counterpart?.profile?.displayName,
-        conversation.counterpart?.username,
-      );
+    : isGroup
+      ? (conversation.title ?? "Untitled group")
+      : getProfileDisplayName(
+          conversation.counterpart?.profile?.displayName,
+          conversation.counterpart?.username,
+        );
   const preview = notes ? "Notes to yourself" : getPreview(conversation);
   const activity = notes
     ? null
@@ -95,7 +99,11 @@ function ConversationRow({
         name={identity}
         presenceStatus={presenceStatus}
         url={
-          isSelf ? null : (conversation.counterpart?.profile?.avatar ?? null)
+          isSelf
+            ? null
+            : isGroup
+              ? conversation.avatar
+              : (conversation.counterpart?.profile?.avatar ?? null)
         }
       />
       <span className="min-w-0 flex-1">
@@ -143,18 +151,25 @@ export function ConversationSidebar({
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const newGroupButtonRef = useRef<HTMLButtonElement>(null);
   const conversationsQuery = useConversations(true);
   const openSelf = useOpenSelfConversation();
   const items =
     conversationsQuery.data?.pages.flatMap((page) =>
       page.items.filter(
         (conversation) =>
-          conversation.type === "DIRECT" || conversation.type === "SELF",
+          conversation.type === "DIRECT" ||
+          conversation.type === "SELF" ||
+          conversation.type === "GROUP",
       ),
     ) ?? [];
   const notes = items.find((conversation) => conversation.type === "SELF");
   const directConversations = items.filter(
     (conversation) => conversation.type === "DIRECT",
+  );
+  const groupConversations = items.filter(
+    (conversation) => conversation.type === "GROUP",
   );
   const presence = usePresenceSnapshots(
     directConversations.flatMap((conversation) =>
@@ -167,8 +182,18 @@ export function ConversationSidebar({
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   const notesMatches =
     !normalizedSearch || "notes notes to yourself".includes(normalizedSearch);
+  const searchableConversations = [
+    ...directConversations,
+    ...groupConversations,
+  ];
   const visibleConversations = normalizedSearch
-    ? directConversations.filter((conversation) => {
+    ? searchableConversations.filter((conversation) => {
+        if (conversation.type === "GROUP") {
+          return (conversation.title ?? "")
+            .toLocaleLowerCase()
+            .includes(normalizedSearch);
+        }
+
         const counterpart = conversation.counterpart;
         const displayName = counterpart?.profile?.displayName ?? "";
         const username = counterpart?.username ?? "";
@@ -177,7 +202,7 @@ export function ConversationSidebar({
           .toLocaleLowerCase()
           .includes(normalizedSearch);
       })
-    : directConversations;
+    : searchableConversations;
   const unreadConversations = visibleConversations.filter(
     (conversation) => conversation.readState.unreadCount > 0,
   );
@@ -197,12 +222,15 @@ export function ConversationSidebar({
           <h1 className="text-xl font-bold tracking-tight text-foreground">
             Chats
           </h1>
-          <span
-            aria-hidden="true"
-            className="grid size-9 place-items-center rounded-full text-xl font-light text-foreground-muted"
+          <button
+            aria-label="Create a new group"
+            className="grid size-10 place-items-center rounded-full text-xl font-light text-primary transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+            onClick={() => setIsCreateGroupOpen(true)}
+            ref={newGroupButtonRef}
+            type="button"
           >
-            +
-          </span>
+            <span aria-hidden="true">+</span>
+          </button>
         </div>
         <div className="relative">
           <label className="sr-only" htmlFor="conversation-search">
@@ -323,7 +351,7 @@ export function ConversationSidebar({
           </h2>
           {!normalizedSearch ? (
             <span className="text-xs font-medium text-foreground-muted">
-              {directConversations.length} chats
+              {searchableConversations.length} chats
             </span>
           ) : null}
         </div>
@@ -385,6 +413,17 @@ export function ConversationSidebar({
           </button>
         ) : null}
       </div>
+      <CreateGroupDialog
+        isOpen={isCreateGroupOpen}
+        onClose={() => {
+          setIsCreateGroupOpen(false);
+          requestAnimationFrame(() => newGroupButtonRef.current?.focus());
+        }}
+        onCreated={(conversationId) => {
+          setIsCreateGroupOpen(false);
+          router.push(`/chat/${conversationId}`);
+        }}
+      />
     </aside>
   );
 }

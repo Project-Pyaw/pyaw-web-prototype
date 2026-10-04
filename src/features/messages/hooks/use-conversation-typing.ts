@@ -18,7 +18,7 @@ const MAX_REMOTE_TYPING_EXPIRY_MS = 10_000;
 
 type UseConversationTypingOptions = Readonly<{
   conversationId: string;
-  conversationType: "DIRECT" | "SELF";
+  conversationType: "DIRECT" | "SELF" | "GROUP";
   currentAccountId: string;
 }>;
 
@@ -40,7 +40,10 @@ export function useConversationTyping({
       localStopTimerRef.current = null;
     }
 
-    if (!localTypingRef.current || conversationType !== "DIRECT") {
+    if (
+      !localTypingRef.current ||
+      (conversationType !== "DIRECT" && conversationType !== "GROUP")
+    ) {
       return;
     }
 
@@ -50,7 +53,10 @@ export function useConversationTyping({
 
   const onDraftChange = useCallback(
     (content: string) => {
-      if (!conversationId || conversationType !== "DIRECT") {
+      if (
+        !conversationId ||
+        (conversationType !== "DIRECT" && conversationType !== "GROUP")
+      ) {
         return;
       }
 
@@ -77,7 +83,10 @@ export function useConversationTyping({
   );
 
   useEffect(() => {
-    if (!conversationId || conversationType !== "DIRECT") {
+    if (
+      !conversationId ||
+      (conversationType !== "DIRECT" && conversationType !== "GROUP")
+    ) {
       setIsCounterpartTyping(false);
       return;
     }

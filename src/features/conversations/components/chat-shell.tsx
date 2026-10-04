@@ -47,7 +47,9 @@ export function ChatShell({
     .find(
       (conversation) =>
         conversation.id === selectedConversationId &&
-        (conversation.type === "DIRECT" || conversation.type === "SELF"),
+        (conversation.type === "DIRECT" ||
+          conversation.type === "SELF" ||
+          conversation.type === "GROUP"),
     );
 
   const self = {

@@ -13,6 +13,7 @@ export type MessagesSocketConnectionState =
 
 type ConnectionStateListener = () => void;
 type ConversationReadListener = (payload: unknown) => void;
+type ConversationChangedListener = (payload: unknown) => void;
 type MessageDeletedListener = (payload: unknown) => void;
 type MessageNewListener = (payload: unknown) => void;
 type MessageUpdatedListener = (payload: unknown) => void;
@@ -23,6 +24,7 @@ type TypingUpdateListener = (payload: unknown) => void;
 
 const connectionStateListeners = new Set<ConnectionStateListener>();
 const conversationReadListeners = new Set<ConversationReadListener>();
+const conversationChangedListeners = new Set<ConversationChangedListener>();
 const messageDeletedListeners = new Set<MessageDeletedListener>();
 const messageNewListeners = new Set<MessageNewListener>();
 const messageUpdatedListeners = new Set<MessageUpdatedListener>();
@@ -94,6 +96,9 @@ function createMessagesSocket(): Socket {
   });
   socket.on("conversation:read", (payload: unknown) => {
     conversationReadListeners.forEach((listener) => listener(payload));
+  });
+  socket.on("conversation:changed", (payload: unknown) => {
+    conversationChangedListeners.forEach((listener) => listener(payload));
   });
   socket.on("typing:update", (payload: unknown) => {
     typingUpdateListeners.forEach((listener) => listener(payload));
@@ -215,6 +220,14 @@ export function subscribeToConversationRead(
   conversationReadListeners.add(listener);
 
   return () => conversationReadListeners.delete(listener);
+}
+
+export function subscribeToConversationChanged(
+  listener: ConversationChangedListener,
+): () => void {
+  conversationChangedListeners.add(listener);
+
+  return () => conversationChangedListeners.delete(listener);
 }
 
 export function subscribeToTypingUpdate(

@@ -20,6 +20,16 @@ export type ConversationListItem = Readonly<{
   id: string;
   type: ConversationType;
   title: string | null;
+  avatar: string | null;
+  membership: Readonly<{ role: "OWNER" | "ADMIN" | "MEMBER" }> | null;
+  memberCount: number | null;
+  memberSummary: ReadonlyArray<
+    Readonly<{
+      accountId: string;
+      username: string | null;
+      displayName: string | null;
+    }>
+  >;
   activityAt: string;
   createdAt: string;
   counterpart: ConversationCounterpart | null;
@@ -49,4 +59,15 @@ export type OpenedConversation = Readonly<{
     ConversationCounterpart & { joinedAt: string | null }
   >;
   readState: ConversationReadState;
+}>;
+
+export type CreatedGroupConversation = Readonly<{
+  id: string;
+  type: "GROUP";
+  title: string;
+  avatar: string | null;
+  createdAt: string;
+  updatedAt: string;
+  membership: Readonly<{ role: "OWNER" | "ADMIN" | "MEMBER" }>;
+  memberCount: number;
 }>;

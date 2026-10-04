@@ -136,7 +136,8 @@ function mapReplyTo(value: unknown): ReplyMessagePreview | null | undefined {
     if (
       !isRecord(profile) ||
       typeof profile.id !== "string" ||
-      !isNullableString(profile.displayName)
+      !isNullableString(profile.displayName) ||
+      !isNullableString(profile.avatar)
     ) {
       return undefined;
     }
@@ -144,6 +145,7 @@ function mapReplyTo(value: unknown): ReplyMessagePreview | null | undefined {
     mappedProfile = {
       id: profile.id,
       displayName: profile.displayName,
+      avatar: profile.avatar,
     };
   }
 
@@ -211,7 +213,8 @@ export function mapMessageNewEvent(
     if (
       !isRecord(profile) ||
       typeof profile.id !== "string" ||
-      !isNullableString(profile.displayName)
+      !isNullableString(profile.displayName) ||
+      !isNullableString(profile.avatar)
     ) {
       return null;
     }
@@ -219,6 +222,7 @@ export function mapMessageNewEvent(
     mappedProfile = {
       id: profile.id,
       displayName: profile.displayName,
+      avatar: profile.avatar,
     };
   }
 
