@@ -147,6 +147,45 @@ export function ConversationEmptyState({
   }
 
   if (!conversation || !identity) {
+    if (!selectedConversationId) {
+      return (
+        <section className="grid min-h-0 flex-1 place-items-center bg-surface px-6 py-12 text-center sm:px-10">
+          <div className="max-w-md">
+            <div
+              aria-hidden="true"
+              className="mx-auto grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm"
+            >
+              <svg className="size-7" fill="none" viewBox="0 0 24 24">
+                <path
+                  d="M5 5.5A1.5 1.5 0 0 1 6.5 4h11A1.5 1.5 0 0 1 19 5.5v10A1.5 1.5 0 0 1 17.5 17H10l-4.5 3v-3.6A1.5 1.5 0 0 1 5 15.5v-10Z"
+                  stroke="currentColor"
+                  strokeLinejoin="round"
+                  strokeWidth="1.8"
+                />
+              </svg>
+            </div>
+            <p className="mt-5 text-lg font-semibold text-primary">Pyaw</p>
+            <h2 className="mt-2 text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Clean conversations, zero noise.
+            </h2>
+            <p className="mt-3 text-pretty text-base leading-6 text-foreground-muted">
+              Experience lightweight messaging with instant replies, smart
+              mentions, and pure distraction-free communication crafted for
+              digital teams.
+            </p>
+            {isLoading ? (
+              <p
+                aria-live="polite"
+                className="mt-5 text-sm text-foreground-muted"
+              >
+                Loading conversations…
+              </p>
+            ) : null}
+          </div>
+        </section>
+      );
+    }
+
     return (
       <section className="grid min-h-0 flex-1 place-items-center p-6 text-center">
         <div className="max-w-sm space-y-3">
@@ -154,11 +193,7 @@ export function ConversationEmptyState({
             Pyaw
           </p>
           <h2 className="text-xl font-semibold text-foreground">
-            {isLoading
-              ? "Loading conversations…"
-              : selectedConversationId
-                ? "Conversation unavailable"
-                : "Select a conversation"}
+            {isLoading ? "Loading conversations…" : "Conversation unavailable"}
           </h2>
           {selectedConversationId ? (
             <button
