@@ -1,17 +1,21 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 import {
   AppHeader,
   type AppNavigationSection,
 } from "@/components/layout/app-header";
 import { AppWorkspace } from "@/components/layout/app-workspace";
+import { messageHistoryQueryKey } from "@/features/messages/hooks/use-message-history";
 import { AccountNavigationButton } from "@/features/profile/components/account-navigation-button";
 
 import { ConversationEmptyState } from "./conversation-empty-state";
 import { ConversationSidebar } from "./conversation-sidebar";
 import { useConversations } from "../hooks/use-conversations";
+import type { ConversationType } from "../types";
 
 type ChatShellProps = Readonly<{
   currentAccount: Readonly<{
@@ -31,7 +35,11 @@ export function ChatShell({
   selectedConversationId,
 }: ChatShellProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const conversations = useConversations(true);
+  const previousSelectedConversationTypeRef = useRef<ConversationType | null>(
+    null,
+  );
   const selectedConversation = conversations.data?.pages
     .flatMap((page) => page.items)
     .find(
@@ -48,6 +56,36 @@ export function ChatShell({
     username: currentAccount.username,
   };
   const showConversation = Boolean(selectedConversationId);
+
+  useEffect(() => {
+    if (selectedConversation) {
+      previousSelectedConversationTypeRef.current = selectedConversation.type;
+      return;
+    }
+
+    if (
+      !selectedConversationId ||
+      conversations.isPending ||
+      conversations.isFetching ||
+      previousSelectedConversationTypeRef.current !== "GROUP"
+    ) {
+      return;
+    }
+
+    previousSelectedConversationTypeRef.current = null;
+    queryClient.removeQueries({
+      exact: true,
+      queryKey: messageHistoryQueryKey(selectedConversationId),
+    });
+    router.replace("/chat");
+  }, [
+    conversations.isFetching,
+    conversations.isPending,
+    queryClient,
+    router,
+    selectedConversation,
+    selectedConversationId,
+  ]);
 
   return (
     <AppWorkspace className="flex flex-col">
