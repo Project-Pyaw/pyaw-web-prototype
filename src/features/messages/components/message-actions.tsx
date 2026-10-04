@@ -32,10 +32,13 @@ type MessageActionsProps = Readonly<{
   message: MessageHistoryItem;
   onDelete: () => void;
   onEdit: () => void;
+  onOpenReactionPicker?: () => void;
   onReply: () => void;
   onToggleReaction: (reaction: MessageReaction, reactedByMe: boolean) => void;
   onMenuOpenChange: (open: boolean) => void;
   outgoing: boolean;
+  reactionPickerOpen: boolean;
+  useCompactActions: boolean;
   menuOpen: boolean;
 }>;
 
@@ -54,18 +57,31 @@ export function MessageActions({
   message,
   onDelete,
   onEdit,
+  onOpenReactionPicker,
   onReply,
   onToggleReaction,
   onMenuOpenChange,
   outgoing,
+  reactionPickerOpen,
+  useCompactActions,
   menuOpen,
 }: MessageActionsProps) {
   const interactionRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const reactionTriggerRef = useRef<HTMLButtonElement>(null);
+  const wasReactionPickerOpenRef = useRef(false);
   const [railOpen, setRailOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ left: 8, top: 8 });
+
+  useEffect(() => {
+    if (wasReactionPickerOpenRef.current && !reactionPickerOpen) {
+      requestAnimationFrame(() => reactionTriggerRef.current?.focus());
+    }
+
+    wasReactionPickerOpenRef.current = reactionPickerOpen;
+  }, [reactionPickerOpen]);
 
   function closeInteraction(): void {
     setConfirmingDelete(false);
@@ -89,6 +105,11 @@ export function MessageActions({
 
   function reply(): void {
     onReply();
+    closeInteraction();
+  }
+
+  function openReactionPicker(): void {
+    onOpenReactionPicker?.();
     closeInteraction();
   }
 
@@ -161,9 +182,14 @@ export function MessageActions({
 
     function closeOnEscape(event: KeyboardEvent): void {
       if (event.key === "Escape") {
+        const trigger = menuOpen ? menuTriggerRef.current : null;
+
         setConfirmingDelete(false);
         onMenuOpenChange(false);
         setRailOpen(false);
+        if (trigger) {
+          requestAnimationFrame(() => trigger.focus());
+        }
       }
     }
 
@@ -197,21 +223,33 @@ export function MessageActions({
         className={`${railOpen ? "flex" : "hidden"} max-w-[calc(100vw-2rem)] items-center gap-0.5 overflow-x-auto rounded-xl border border-border bg-surface p-1 shadow-md sm:flex sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100`}
         role="toolbar"
       >
-        {quickReactions.map(([reaction, emoji, label]) => (
+        {useCompactActions ? (
           <button
-            aria-label={label}
-            aria-pressed={
-              message.reactions.find((item) => item.reaction === reaction)
-                ?.reactedByMe ?? false
-            }
-            className="grid size-10 place-items-center rounded-lg text-lg transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 sm:size-7 sm:text-base"
-            key={reaction}
-            onClick={() => toggleQuickReaction(reaction)}
+            aria-label="React to message"
+            className="min-h-10 rounded-lg px-3 text-sm font-medium text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 sm:min-h-7 sm:px-2 sm:text-xs"
+            onClick={openReactionPicker}
+            ref={reactionTriggerRef}
             type="button"
           >
-            <span aria-hidden="true">{emoji}</span>
+            React
           </button>
-        ))}
+        ) : (
+          quickReactions.map(([reaction, emoji, label]) => (
+            <button
+              aria-label={label}
+              aria-pressed={
+                message.reactions.find((item) => item.reaction === reaction)
+                  ?.reactedByMe ?? false
+              }
+              className="grid size-10 place-items-center rounded-lg text-lg transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 sm:size-7 sm:text-base"
+              key={reaction}
+              onClick={() => toggleQuickReaction(reaction)}
+              type="button"
+            >
+              <span aria-hidden="true">{emoji}</span>
+            </button>
+          ))
+        )}
         <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
         <button
           aria-label="Reply"

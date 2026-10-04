@@ -30,11 +30,6 @@ const onlineDotSizeClassNames = {
   sm: "size-2.5",
 } as const;
 
-const presenceDotColorClassNames = {
-  OFFLINE: "bg-foreground-muted",
-  ONLINE: "bg-emerald-500",
-} as const;
-
 export function getProfileDisplayName(
   displayName: string | null | undefined,
   username: string | null | undefined,
@@ -90,10 +85,10 @@ export function ProfileAvatar({
   return (
     <span className="relative inline-flex shrink-0 overflow-visible">
       {avatar}
-      {presenceStatus === "ONLINE" || presenceStatus === "OFFLINE" ? (
+      {presenceStatus === "ONLINE" ? (
         <span
-          aria-label={presenceStatus === "ONLINE" ? "Online" : "Offline"}
-          className={`absolute -bottom-0.5 -right-0.5 z-10 ${onlineDotSizeClassName} rounded-full border-2 border-surface ${presenceDotColorClassNames[presenceStatus]}`}
+          aria-label="Online"
+          className={`absolute -bottom-0.5 -right-0.5 z-10 ${onlineDotSizeClassName} rounded-full border-2 border-surface bg-emerald-500`}
           role="img"
         />
       ) : null}

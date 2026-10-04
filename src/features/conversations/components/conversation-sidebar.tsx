@@ -93,7 +93,7 @@ function ConversationRow({
   return (
     <button
       aria-current={selected ? "page" : undefined}
-      className={`relative flex min-h-[4.75rem] w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
+      className={`relative flex min-h-[4.5rem] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 motion-reduce:transition-none ${
         selected
           ? "bg-surface-muted before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-primary"
           : "hover:bg-surface-muted"
@@ -268,6 +268,8 @@ export function ConversationSidebar({
           <input
             className="min-h-11 w-full rounded-full border border-border bg-input py-2 pl-10 pr-9 text-base text-foreground outline-none placeholder:text-foreground-muted focus:border-focus focus:ring-2 focus:ring-focus/20"
             id="conversation-search"
+            name="conversation-search"
+            autoComplete="off"
             onChange={(event) => setSearchQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Escape") {

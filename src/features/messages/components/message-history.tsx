@@ -760,6 +760,10 @@ export function MessageHistory({
                           message={message}
                           onDelete={() => void deleteForEveryone(message)}
                           onEdit={() => beginEditing(message)}
+                          onOpenReactionPicker={() => {
+                            setReactionPickerMessageId(message.id);
+                            setOpenMessageMenuId(null);
+                          }}
                           onReply={() => onReply(message)}
                           menuOpen={openMessageMenuId === message.id}
                           onMenuOpenChange={(open) => {
@@ -776,6 +780,10 @@ export function MessageHistory({
                             })
                           }
                           outgoing={outgoing}
+                          reactionPickerOpen={
+                            reactionPickerMessageId === message.id
+                          }
+                          useCompactActions={conversationType !== "GROUP"}
                         />
                       ) : null}
                     </>
@@ -803,7 +811,7 @@ export function MessageHistory({
                   </p>
                 ) : null}
                 <div
-                  className={`mt-1.5 flex items-center gap-1.5 px-1 text-[11px] text-foreground-muted ${
+                  className={`mt-1 flex items-center gap-1.5 px-1 text-[11px] text-foreground-muted ${
                     outgoing ? "justify-end" : "justify-start"
                   }`}
                 >

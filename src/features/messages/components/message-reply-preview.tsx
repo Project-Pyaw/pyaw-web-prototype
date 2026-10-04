@@ -3,6 +3,7 @@ import { getProfileDisplayName } from "@/features/profile/components/profile-ava
 import type { ReplyMessagePreview } from "../types";
 
 type MessageReplyPreviewProps = Readonly<{
+  compact?: boolean;
   onClick?: () => void;
   outgoing?: boolean;
   replyTo: ReplyMessagePreview;
@@ -61,14 +62,19 @@ function ReplyPreviewContent({
 }
 
 export function MessageReplyPreview({
+  compact = false,
   onClick,
   outgoing = false,
   replyTo,
 }: MessageReplyPreviewProps) {
-  const className = `block w-full rounded-lg border-l-2 px-3 py-2.5 text-left text-inherit ${
-    outgoing
-      ? "border-message-outgoing-foreground/60 bg-message-outgoing-foreground/10"
-      : "border-primary/55 bg-surface-muted/80"
+  const className = `block w-full text-left text-inherit ${
+    compact
+      ? "px-0 py-0"
+      : `rounded-lg border-l-2 px-3 py-2.5 ${
+          outgoing
+            ? "border-message-outgoing-foreground/60 bg-message-outgoing-foreground/10"
+            : "border-primary/55 bg-surface-muted/80"
+        }`
   }`;
 
   return onClick ? (

@@ -176,12 +176,12 @@ export function MessageComposer({
       onSubmit={handleSubmit}
     >
       {replyTo ? (
-        <div className="mb-2 flex items-start gap-2 rounded-xl border border-border bg-surface-muted p-2">
+        <div className="mb-2 flex items-start gap-2 border-l-2 border-primary/55 bg-surface-muted px-3 py-2">
           <div className="min-w-0 flex-1">
             <p className="mb-1 text-xs font-medium text-foreground-muted">
               Replying to
             </p>
-            <MessageReplyPreview replyTo={replyTo} />
+            <MessageReplyPreview compact replyTo={replyTo} />
           </div>
           <button
             aria-label="Cancel reply"
@@ -213,7 +213,9 @@ export function MessageComposer({
           <img
             alt={`Selected image: ${selectedImage.file.name}`}
             className="h-20 w-20 rounded-lg object-cover"
+            height={80}
             src={selectedImage.previewUrl}
+            width={80}
           />
           <div className="min-w-0 flex-1 pt-1">
             <p className="truncate text-sm font-medium text-foreground">
