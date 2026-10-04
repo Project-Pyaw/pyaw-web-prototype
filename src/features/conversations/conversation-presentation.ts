@@ -6,6 +6,9 @@ const weekdayFormatter = new Intl.DateTimeFormat(undefined, {
   weekday: "short",
 });
 
+export const SELF_CONVERSATION_TITLE = "Note to Self";
+export const SELF_CONVERSATION_DESCRIPTION = "Keep your memories here";
+
 function startOfDay(value: Date): number {
   return new Date(
     value.getFullYear(),

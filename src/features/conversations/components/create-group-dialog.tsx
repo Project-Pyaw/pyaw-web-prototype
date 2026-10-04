@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api/api-error";
+import { createUuidV4 } from "@/lib/uuid";
 import { useConnections } from "@/features/connections/hooks/use-connections";
 import {
   getProfileDisplayName,
@@ -18,7 +19,7 @@ type CreateGroupDialogProps = Readonly<{
 }>;
 
 function createClientGroupId(): string {
-  return crypto.randomUUID();
+  return createUuidV4();
 }
 
 function getCreateError(error: unknown): string {
@@ -44,15 +45,24 @@ export function CreateGroupDialog({
     new Set(),
   );
   const [clientGroupId, setClientGroupId] = useState<string | null>(null);
+  const clientGroupIdRef = useRef<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const memberListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen && !clientGroupId) {
-      setClientGroupId(createClientGroupId());
+    if (!isOpen) {
+      clientGroupIdRef.current = null;
+      return;
     }
-  }, [clientGroupId, isOpen]);
+
+    if (!clientGroupIdRef.current) {
+      const nextClientGroupId = createClientGroupId();
+
+      clientGroupIdRef.current = nextClientGroupId;
+      setClientGroupId(nextClientGroupId);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -81,10 +91,15 @@ export function CreateGroupDialog({
     return null;
   }
 
-  const selectedMembers = (connections.data?.items ?? []).filter((connection) =>
-    selectedMemberIds.has(connection.counterpart.id),
-  );
   const normalizedTitle = title.trim();
+  const selectedMemberCount = selectedMemberIds.size;
+  const hasEnoughSelectedMembers = selectedMemberCount >= 2;
+  const canCreateGroup =
+    Boolean(normalizedTitle) &&
+    hasEnoughSelectedMembers &&
+    Boolean(clientGroupId) &&
+    !connections.isError &&
+    !createGroup.isPending;
   function toggleMember(accountId: string): void {
     setValidationError(null);
     setSelectedMemberIds((current) => {
@@ -109,8 +124,8 @@ export function CreateGroupDialog({
       return;
     }
 
-    if (selectedMemberIds.size === 0) {
-      setValidationError("Select at least 1 person.");
+    if (!hasEnoughSelectedMembers) {
+      setValidationError("Select at least 2 people.");
       memberListRef.current?.focus();
       return;
     }
@@ -198,7 +213,7 @@ export function CreateGroupDialog({
             Add people
           </legend>
           <p className="mt-1 text-sm text-foreground-muted">
-            Select at least 1 established person.
+            Select at least 2 people.
           </p>
           <div
             aria-busy={connections.isPending}
@@ -266,10 +281,10 @@ export function CreateGroupDialog({
           </div>
         </fieldset>
 
-        {selectedMembers.length > 0 ? (
+        {selectedMemberCount > 0 ? (
           <p className="mt-3 text-sm text-foreground-muted">
-            {selectedMembers.length}{" "}
-            {selectedMembers.length === 1 ? "person" : "people"} selected
+            {selectedMemberCount}{" "}
+            {selectedMemberCount === 1 ? "person" : "people"} selected
           </p>
         ) : null}
         {createGroup.isError ? (
@@ -301,7 +316,7 @@ export function CreateGroupDialog({
           </button>
           <button
             className="min-h-11 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={createGroup.isPending || connections.isError}
+            disabled={!canCreateGroup}
             type="submit"
           >
             {createGroup.isPending ? "Creating…" : "Create group"}

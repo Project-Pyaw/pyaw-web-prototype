@@ -7,10 +7,7 @@ import {
   type AppNavigationSection,
 } from "@/components/layout/app-header";
 import { AppWorkspace } from "@/components/layout/app-workspace";
-import {
-  getProfileDisplayName,
-  ProfileAvatar,
-} from "@/features/profile/components/profile-avatar";
+import { AccountNavigationButton } from "@/features/profile/components/account-navigation-button";
 
 import { ConversationEmptyState } from "./conversation-empty-state";
 import { ConversationSidebar } from "./conversation-sidebar";
@@ -57,47 +54,17 @@ export function ChatShell({
       <AppHeader
         activeSection="chats"
         endContent={
-          <button
-            aria-label={`Open profile for ${getProfileDisplayName(
-              currentProfile.displayName,
-              currentAccount.username,
-            )}`}
-            className="flex min-w-0 items-center gap-2 rounded-full p-1.5 text-left transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+          <AccountNavigationButton
+            avatar={currentProfile.avatar}
+            displayName={currentProfile.displayName}
             onClick={() => router.push("/profile")}
-            type="button"
-          >
-            <span className="hidden min-w-0 xl:block">
-              <span className="block max-w-28 truncate text-sm font-medium text-slate-600">
-                {getProfileDisplayName(
-                  currentProfile.displayName,
-                  currentAccount.username,
-                )}
-              </span>
-              {currentAccount.username ? (
-                <span className="block max-w-28 truncate text-xs text-foreground-muted">
-                  @{currentAccount.username}
-                </span>
-              ) : null}
-            </span>
-            <ProfileAvatar
-              name={getProfileDisplayName(
-                currentProfile.displayName,
-                currentAccount.username,
-              )}
-              size="sm"
-              url={currentProfile.avatar}
-            />
-          </button>
+            username={currentAccount.username}
+          />
         }
         onBrandClick={() => {
           router.push("/chat");
         }}
         onNavigate={(section: AppNavigationSection) => {
-          if (section === "profile") {
-            router.push("/profile");
-            return;
-          }
-
           if (section === "people") {
             router.push("/people");
             return;

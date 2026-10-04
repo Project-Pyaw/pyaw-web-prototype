@@ -19,7 +19,11 @@ import type {
 } from "@/features/messages/types";
 import { subscribeToMessageDeleted } from "@/lib/socket/messages-socket";
 
-import { formatLastSeen } from "../conversation-presentation";
+import {
+  formatLastSeen,
+  SELF_CONVERSATION_DESCRIPTION,
+  SELF_CONVERSATION_TITLE,
+} from "../conversation-presentation";
 import { useMarkConversationRead } from "../hooks/use-mark-conversation-read";
 
 import type { ConversationListItem } from "../types";
@@ -50,7 +54,7 @@ export function ConversationEmptyState({
   const isGroup = conversation?.type === "GROUP";
   const identity = conversation
     ? isSelf
-      ? (conversation.self?.label ?? "Notes")
+      ? SELF_CONVERSATION_TITLE
       : isGroup
         ? (conversation.title ?? "Untitled group")
         : getProfileDisplayName(
@@ -74,7 +78,7 @@ export function ConversationEmptyState({
       ? formatLastSeen(presence.lastSeenAt)
       : null;
   const secondaryText = isSelf
-    ? "Notes to yourself"
+    ? SELF_CONVERSATION_DESCRIPTION
     : isGroup
       ? typing.isCounterpartTyping
         ? "Someone is typing…"
@@ -206,71 +210,6 @@ export function ConversationEmptyState({
             </p>
           </div>
         </div>
-        {!isGroup ? (
-          <div
-            aria-hidden="true"
-            className="hidden items-center gap-3 text-foreground-muted sm:flex"
-          >
-            <svg className="size-5" fill="none" viewBox="0 0 24 24">
-              <circle
-                cx="11"
-                cy="11"
-                r="6.5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              />
-              <path
-                d="m16 16 4 4"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="1.8"
-              />
-            </svg>
-            <svg className="size-5" fill="none" viewBox="0 0 24 24">
-              <path
-                d="M5 4h3l2 5-2.5 1.5a12 12 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2C10.3 21 3 13.7 3 6a2 2 0 0 1 2-2Z"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.8"
-              />
-            </svg>
-            <svg className="size-5" fill="none" viewBox="0 0 24 24">
-              <rect
-                height="12"
-                rx="2"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                width="13"
-                x="3"
-                y="6"
-              />
-              <path
-                d="m16 10 4-2v8l-4-2"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.8"
-              />
-            </svg>
-            <svg className="size-5" fill="none" viewBox="0 0 24 24">
-              <circle
-                cx="12"
-                cy="12"
-                r="8"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              />
-              <path
-                d="M12 11v5m0-8h.01"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="1.8"
-              />
-            </svg>
-            <span className="text-xl leading-none">⋮</span>
-          </div>
-        ) : null}
       </header>
       <MessageHistory
         conversationId={conversation.id}

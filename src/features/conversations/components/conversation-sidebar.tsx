@@ -15,7 +15,11 @@ import {
   useConversations,
   useOpenSelfConversation,
 } from "../hooks/use-conversations";
-import { formatConversationActivity } from "../conversation-presentation";
+import {
+  formatConversationActivity,
+  SELF_CONVERSATION_DESCRIPTION,
+  SELF_CONVERSATION_TITLE,
+} from "../conversation-presentation";
 import { CreateGroupDialog } from "./create-group-dialog";
 import type { ConversationListItem } from "../types";
 
@@ -71,14 +75,16 @@ function ConversationRow({
   const isSelf = conversation.type === "SELF";
   const isGroup = conversation.type === "GROUP";
   const identity = isSelf
-    ? (conversation.self?.label ?? "Notes")
+    ? SELF_CONVERSATION_TITLE
     : isGroup
       ? (conversation.title ?? "Untitled group")
       : getProfileDisplayName(
           conversation.counterpart?.profile?.displayName,
           conversation.counterpart?.username,
         );
-  const preview = notes ? "Notes to yourself" : getPreview(conversation);
+  const preview = notes
+    ? SELF_CONVERSATION_DESCRIPTION
+    : getPreview(conversation);
   const activity = notes
     ? null
     : formatConversationActivity(conversation.activityAt);
@@ -181,7 +187,10 @@ export function ConversationSidebar({
   const identity = getProfileDisplayName(self.displayName, self.username);
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   const notesMatches =
-    !normalizedSearch || "notes notes to yourself".includes(normalizedSearch);
+    !normalizedSearch ||
+    `${SELF_CONVERSATION_TITLE} ${SELF_CONVERSATION_DESCRIPTION}`
+      .toLocaleLowerCase()
+      .includes(normalizedSearch);
   const searchableConversations = [
     ...directConversations,
     ...groupConversations,
@@ -311,7 +320,7 @@ export function ConversationSidebar({
         </div>
       </div>
       {notesMatches ? (
-        <section className="px-3 py-3" aria-label="Notes">
+        <section className="px-3 py-3" aria-label={SELF_CONVERSATION_TITLE}>
           {notes ? (
             <ConversationRow
               conversation={notes}
@@ -327,16 +336,18 @@ export function ConversationSidebar({
             >
               <ProfileAvatar name={identity} url={self.avatar} />
               <span className="min-w-0">
-                <span className="block font-medium text-foreground">Notes</span>
+                <span className="block font-medium text-foreground">
+                  {SELF_CONVERSATION_TITLE}
+                </span>
                 <span className="block text-sm text-foreground-muted">
-                  Notes to yourself
+                  {SELF_CONVERSATION_DESCRIPTION}
                 </span>
               </span>
             </button>
           )}
           {openSelf.isError ? (
             <p className="px-3 pt-2 text-sm text-danger" role="alert">
-              Notes is unavailable.
+              {SELF_CONVERSATION_TITLE} is unavailable.
             </p>
           ) : null}
         </section>

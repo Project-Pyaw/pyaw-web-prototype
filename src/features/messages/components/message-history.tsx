@@ -200,6 +200,7 @@ export function MessageHistory({
   const messageActions = useMessageActions(conversationId);
   const messageReactions = useMessageReactions(conversationId);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const previousScrollRef = useRef<{
     height: number;
     top: number;
@@ -295,6 +296,63 @@ export function MessageHistory({
       container.scrollTop = container.scrollHeight;
     }
   }, [history.data, history.isFetchingNextPage]);
+
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    const content = contentRef.current;
+
+    if (!container || !content) {
+      return;
+    }
+
+    let frame: number | null = null;
+    const settleAtLatestMessage = () => {
+      frame = null;
+
+      if (
+        previousScrollRef.current ||
+        !shouldFollowLatestRef.current ||
+        !scrollRef.current
+      ) {
+        return;
+      }
+
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    };
+    const scheduleSettleAtLatestMessage = () => {
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+
+      frame = window.requestAnimationFrame(settleAtLatestMessage);
+    };
+    const ResizeObserverConstructor = window.ResizeObserver;
+
+    if (!ResizeObserverConstructor) {
+      scheduleSettleAtLatestMessage();
+
+      return () => {
+        if (frame !== null) {
+          window.cancelAnimationFrame(frame);
+        }
+      };
+    }
+
+    const observer = new ResizeObserverConstructor(
+      scheduleSettleAtLatestMessage,
+    );
+    observer.observe(container);
+    observer.observe(content);
+    scheduleSettleAtLatestMessage();
+
+    return () => {
+      observer.disconnect();
+
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [conversationId]);
 
   useEffect(() => {
     if (
@@ -414,6 +472,7 @@ export function MessageHistory({
         height: container.scrollHeight,
         top: container.scrollTop,
       };
+      shouldFollowLatestRef.current = false;
     }
 
     history.fetchNextPage();
@@ -508,6 +567,7 @@ export function MessageHistory({
           />
         ) : null}
         <div
+          ref={contentRef}
           className={`mx-auto flex min-h-full w-full max-w-5xl flex-col gap-px ${
             isEmpty ? "justify-center" : "justify-end"
           } ${history.isPending ? "hidden" : ""}`}

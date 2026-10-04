@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
-export type AppNavigationSection = "chats" | "people" | "profile";
+export type AppNavigationSection = "chats" | "people";
 
 type AppHeaderProps = Readonly<{
-  activeSection: AppNavigationSection;
+  activeSection?: AppNavigationSection;
   endContent?: ReactNode;
   onBrandClick: () => void;
   onNavigate: (section: AppNavigationSection) => void;
@@ -25,11 +25,6 @@ const navigationItems: ReadonlyArray<
 > = [
   { label: "Chats", section: "chats" },
   { label: "People", section: "people" },
-  {
-    className: "hidden lg:flex",
-    label: "Settings & Profile",
-    section: "profile",
-  },
 ];
 
 export function AppHeader({

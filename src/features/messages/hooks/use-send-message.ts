@@ -8,6 +8,7 @@ import {
 import { useRef } from "react";
 
 import { conversationsQueryKey } from "@/features/conversations/hooks/use-conversations";
+import { createUuidV4 } from "@/lib/uuid";
 
 import { sendMessage } from "../api/send-message";
 import {
@@ -44,24 +45,6 @@ export type SelectedComposerImage = Readonly<{
 
 export type SendMessageResult =
   Readonly<{ accepted: true }> | Readonly<{ accepted: false; error: string }>;
-
-function createClientMessageId(): string {
-  if (typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-
-  return [...bytes]
-    .map((byte, index) => {
-      const separator = [4, 6, 8, 10].includes(index) ? "-" : "";
-
-      return `${separator}${byte.toString(16).padStart(2, "0")}`;
-    })
-    .join("");
-}
 
 export function useSendMessage(conversationId: string) {
   const queryClient = useQueryClient();
@@ -232,7 +215,7 @@ export function useSendMessage(conversationId: string) {
       };
     }
 
-    const clientMessageId = createClientMessageId();
+    const clientMessageId = createUuidV4();
 
     if (!image) {
       return sendPersistedMessage(
