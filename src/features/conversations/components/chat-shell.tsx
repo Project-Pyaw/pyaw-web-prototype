@@ -104,6 +104,11 @@ export function ChatShell({
             return;
           }
 
+          if (section === "connections") {
+            router.push("/chat?workspace=connections");
+            return;
+          }
+
           setWorkspace(section);
 
           if (section === "chats") {

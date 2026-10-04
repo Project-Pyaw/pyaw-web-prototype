@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -16,8 +17,6 @@ type MessageImageAttachmentProps = Readonly<{
   attachment: MessageAttachment;
   localPreviewUrl?: string;
 }>;
-
-const IMAGE_DOWNLOAD_VARIANTS = ["thumbnail", "preview", "original"] as const;
 
 function isCurrentSignedDownload(download: AttachmentDownload | undefined) {
   if (!download) {
@@ -45,10 +44,10 @@ function useAttachmentDownload(
     enabled,
     queryFn: () => getAttachmentDownload(attachmentId, variant),
     queryKey: attachmentDownloadQueryKey(attachmentId, variant),
-    gcTime: 0,
-    refetchOnMount: "always",
+    gcTime: 5 * 60_000,
+    refetchOnMount: false,
     retry: false,
-    staleTime: 0,
+    staleTime: 60_000,
   });
 }
 
@@ -57,34 +56,20 @@ function useImageDownload(
   initialVariant: AttachmentDownloadVariant,
   enabled: boolean,
 ) {
-  const initialVariantIndex = IMAGE_DOWNLOAD_VARIANTS.indexOf(initialVariant);
-  const [variantIndex, setVariantIndex] = useState(initialVariantIndex);
   const [renderFailed, setRenderFailed] = useState(false);
   const retriedUrlRef = useRef<string | null>(null);
   const expiredUrlRef = useRef<string | null>(null);
-  const variant = IMAGE_DOWNLOAD_VARIANTS[variantIndex];
   const { data, isError, refetch } = useAttachmentDownload(
     attachmentId,
-    variant,
+    initialVariant,
     enabled,
   );
-  const canTryAnotherVariant =
-    variantIndex < IMAGE_DOWNLOAD_VARIANTS.length - 1;
 
   useEffect(() => {
-    setVariantIndex(initialVariantIndex);
     setRenderFailed(false);
     retriedUrlRef.current = null;
     expiredUrlRef.current = null;
-  }, [attachmentId, initialVariantIndex]);
-
-  useEffect(() => {
-    if (!enabled || !isError || !canTryAnotherVariant) {
-      return;
-    }
-
-    setVariantIndex((currentIndex) => currentIndex + 1);
-  }, [canTryAnotherVariant, enabled, isError]);
+  }, [attachmentId, initialVariant]);
 
   useEffect(() => {
     if (
@@ -100,18 +85,6 @@ function useImageDownload(
     void refetch();
   }, [data, enabled, refetch]);
 
-  function tryAnotherVariant() {
-    if (!canTryAnotherVariant) {
-      setRenderFailed(true);
-      return;
-    }
-
-    retriedUrlRef.current = null;
-    expiredUrlRef.current = null;
-    setRenderFailed(false);
-    setVariantIndex((currentIndex) => currentIndex + 1);
-  }
-
   function handleImageError() {
     const url = data?.url;
 
@@ -121,14 +94,14 @@ function useImageDownload(
       return;
     }
 
-    tryAnotherVariant();
+    setRenderFailed(true);
   }
 
   const downloadUrl = data;
 
   return {
     handleImageError,
-    isUnavailable: renderFailed || (!canTryAnotherVariant && isError),
+    isUnavailable: renderFailed || isError,
     url:
       downloadUrl && isCurrentSignedDownload(downloadUrl)
         ? downloadUrl.url
@@ -144,13 +117,32 @@ function ImagePreviewDialog({
   onClose: () => void;
 }>) {
   const preview = useImageDownload(attachment.id, "preview", true);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  return (
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+      closeButtonRef.current?.focus();
+    }
+  }
+
+  const dialog = (
     <div
       aria-label={`Preview ${attachment.originalName}`}
       aria-modal="true"
-      className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4"
+      className="fixed inset-0 z-50 grid overscroll-contain place-items-center bg-black/75 p-4"
       onClick={onClose}
+      onKeyDown={handleKeyDown}
       role="dialog"
     >
       <div
@@ -161,6 +153,7 @@ function ImagePreviewDialog({
           aria-label="Close image preview"
           className="absolute right-5 top-5 z-10 grid size-10 place-items-center rounded-full bg-surface/90 text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
           onClick={onClose}
+          ref={closeButtonRef}
           type="button"
         >
           <svg
@@ -198,6 +191,10 @@ function ImagePreviewDialog({
       </div>
     </div>
   );
+
+  return typeof document === "undefined"
+    ? null
+    : createPortal(dialog, document.body);
 }
 
 export function MessageImageAttachment({
@@ -205,6 +202,7 @@ export function MessageImageAttachment({
   localPreviewUrl,
 }: MessageImageAttachmentProps) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const previewTriggerRef = useRef<HTMLButtonElement>(null);
   const thumbnail = useImageDownload(
     attachment.id,
     "thumbnail",
@@ -222,6 +220,11 @@ export function MessageImageAttachment({
 
   const imageUrl = localPreviewUrl ?? thumbnail.url;
 
+  function closePreview(): void {
+    setIsPreviewOpen(false);
+    requestAnimationFrame(() => previewTriggerRef.current?.focus());
+  }
+
   return (
     <>
       <button
@@ -229,6 +232,7 @@ export function MessageImageAttachment({
         className="block w-full overflow-hidden rounded-xl bg-surface-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40"
         disabled={!imageUrl}
         onClick={() => setIsPreviewOpen(true)}
+        ref={previewTriggerRef}
         type="button"
       >
         {imageUrl ? (
@@ -253,10 +257,7 @@ export function MessageImageAttachment({
         )}
       </button>
       {isPreviewOpen ? (
-        <ImagePreviewDialog
-          attachment={attachment}
-          onClose={() => setIsPreviewOpen(false)}
-        />
+        <ImagePreviewDialog attachment={attachment} onClose={closePreview} />
       ) : null}
     </>
   );

@@ -16,6 +16,13 @@ const avatarSizeClassNames = {
   sm: "size-8 text-xs",
 } as const;
 
+const avatarSizePixels = {
+  header: 40,
+  lg: 112,
+  md: 48,
+  sm: 32,
+} as const;
+
 const onlineDotSizeClassNames = {
   header: "size-3",
   lg: "size-4",
@@ -53,6 +60,7 @@ export function ProfileAvatar({
   const [failedToLoad, setFailedToLoad] = useState(false);
   const initials = getInitials(name) || "P";
   const sizeClassName = avatarSizeClassNames[size];
+  const sizePixels = avatarSizePixels[size];
   const onlineDotSizeClassName = onlineDotSizeClassNames[size];
 
   useEffect(() => {
@@ -66,8 +74,10 @@ export function ProfileAvatar({
       <img
         alt={`${name} avatar`}
         className={`${sizeClassName} aspect-square shrink-0 rounded-full border border-primary/20 object-cover`}
+        height={sizePixels}
         onError={() => setFailedToLoad(true)}
         src={url}
+        width={sizePixels}
       />
     ) : (
       <div
@@ -84,6 +94,7 @@ export function ProfileAvatar({
         <span
           aria-label={presenceStatus === "ONLINE" ? "Online" : "Offline"}
           className={`absolute -bottom-0.5 -right-0.5 z-10 ${onlineDotSizeClassName} rounded-full border-2 border-surface ${presenceDotColorClassNames[presenceStatus]}`}
+          role="img"
         />
       ) : null}
     </span>
