@@ -16,6 +16,7 @@ import {
 } from "@/components/layout/app-header";
 import { AppWorkspace } from "@/components/layout/app-workspace";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BlockedUsersSection } from "@/features/blocks/components/blocked-users-section";
 import { ApiError } from "@/lib/api/api-error";
 import { bootstrapSession, logout } from "@/features/auth/session/session";
 import { useSessionStatus } from "@/features/auth/session/use-session-status";
@@ -98,13 +99,20 @@ function ProfileNavigationItem({
   active = false,
   children,
   icon,
-}: Readonly<{ active?: boolean; children: ReactNode; icon: ReactNode }>) {
-  return (
-    <div
-      className={`flex min-h-12 items-center gap-3 rounded-full px-4 text-sm font-medium ${
-        active ? "bg-primary/15 text-primary" : "text-foreground-muted"
-      }`}
-    >
+  onClick,
+}: Readonly<{
+  active?: boolean;
+  children: ReactNode;
+  icon: ReactNode;
+  onClick?: () => void;
+}>) {
+  const className =
+    "flex min-h-12 w-full items-center gap-3 rounded-full px-4 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 " +
+    (active
+      ? "bg-primary/15 text-primary"
+      : "text-foreground-muted hover:bg-surface-muted hover:text-foreground");
+  const content = (
+    <>
       <span aria-hidden="true" className="grid size-5 place-items-center">
         {icon}
       </span>
@@ -115,6 +123,20 @@ function ProfileNavigationItem({
           className="ml-auto size-1.5 rounded-full bg-primary"
         />
       ) : null}
+    </>
+  );
+
+  return onClick ? (
+    <button className={className} onClick={onClick} type="button">
+      {content}
+    </button>
+  ) : (
+    <div
+      className={`flex min-h-12 items-center gap-3 rounded-full px-4 text-sm font-medium ${
+        active ? "bg-primary/15 text-primary" : "text-foreground-muted"
+      }`}
+    >
+      {content}
     </div>
   );
 }
@@ -311,6 +333,9 @@ export function ProfileScreen() {
   >();
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [profileSection, setProfileSection] = useState<"blocked" | "profile">(
+    "profile",
+  );
   const serverDisplayName = profileQuery.data?.profile.displayName ?? "";
   const serverBio = profileQuery.data?.profile.bio ?? "";
   const isProfileDirty =
@@ -627,11 +652,19 @@ export function ProfileScreen() {
             </div>
           </div>
           <nav aria-label="Profile navigation" className="mt-5 space-y-2">
-            <ProfileNavigationItem active icon="●">
+            <ProfileNavigationItem
+              active={profileSection === "profile"}
+              icon="●"
+              onClick={() => setProfileSection("profile")}
+            >
               Profile
             </ProfileNavigationItem>
             <ProfileNavigationItem icon="⚙">Settings</ProfileNavigationItem>
-            <ProfileNavigationItem icon="⊘">
+            <ProfileNavigationItem
+              active={profileSection === "blocked"}
+              icon="⊘"
+              onClick={() => setProfileSection("blocked")}
+            >
               Blocked Users
             </ProfileNavigationItem>
             <ProfileNavigationItem icon="ⓘ">About</ProfileNavigationItem>
@@ -661,274 +694,314 @@ export function ProfileScreen() {
         </aside>
         <div className="min-h-0 overflow-y-auto">
           <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-10">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                  Profile
-                </h2>
-                <p className="mt-1 text-base text-foreground-muted">
-                  Manage your public information, avatar, and contact
-                  credentials.
-                </p>
-              </div>
+            <div className="mb-8 grid grid-cols-2 gap-1 rounded-2xl bg-surface-muted p-1 lg:hidden">
               <button
-                aria-describedby={
-                  displayNameError || bioError
-                    ? "profile-form-error"
-                    : undefined
-                }
-                className="min-h-12 rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={
-                  !isProfileDirty ||
-                  Boolean(displayNameError) ||
-                  Boolean(bioError) ||
-                  isProfileMutationPending
-                }
-                onClick={() => void saveProfile()}
+                aria-pressed={profileSection === "profile"}
+                className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 ${
+                  profileSection === "profile"
+                    ? "bg-surface text-foreground shadow-sm"
+                    : "text-foreground-muted hover:bg-surface/70 hover:text-foreground"
+                }`}
+                onClick={() => setProfileSection("profile")}
                 type="button"
               >
-                {updateCurrentProfile.isPending ? "Saving…" : "Save Changes"}
+                Profile
+              </button>
+              <button
+                aria-pressed={profileSection === "blocked"}
+                className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 ${
+                  profileSection === "blocked"
+                    ? "bg-surface text-foreground shadow-sm"
+                    : "text-foreground-muted hover:bg-surface/70 hover:text-foreground"
+                }`}
+                onClick={() => setProfileSection("blocked")}
+                type="button"
+              >
+                Blocked Users
               </button>
             </div>
-            <section
-              aria-labelledby="profile-details-title"
-              className="mt-8 rounded-3xl border border-border bg-surface p-5 sm:p-7"
-            >
-              <div className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-center">
-                <span className="relative w-fit">
-                  <ProfileAvatar
-                    name={identity}
-                    size="lg"
-                    url={profile.avatar}
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="absolute bottom-0 right-0 grid size-10 place-items-center rounded-full border-4 border-surface bg-primary text-lg text-primary-foreground"
-                  >
-                    ⌾
-                  </span>
-                </span>
-                <div>
-                  <h3
-                    className="text-lg font-semibold text-foreground"
-                    id="profile-details-title"
-                  >
-                    Profile Photo
-                  </h3>
-                  <p className="mt-1 text-sm text-foreground-muted">
-                    Your avatar is provided by your Pyaw profile.
-                  </p>
-                  <div className="mt-4 flex items-center gap-5">
-                    <input
-                      accept="image/gif,image/jpeg,image/png,image/webp"
-                      className="sr-only"
-                      disabled={isProfileMutationPending}
-                      id="profile-avatar-upload"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-
-                        if (file) {
-                          void uploadAvatar(file);
-                        }
-                      }}
-                      ref={avatarInputRef}
-                      type="file"
-                    />
-                    <button
-                      className="rounded-full bg-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isProfileMutationPending}
-                      onClick={() => avatarInputRef.current?.click()}
-                      type="button"
-                    >
-                      {isUploadingAvatar ? "Uploading…" : "Upload New"}
-                    </button>
-                    <button
-                      aria-describedby="avatar-remove-unavailable"
-                      className="cursor-not-allowed text-sm font-medium text-foreground-muted opacity-60"
-                      disabled
-                      type="button"
-                    >
-                      Remove
-                    </button>
+            {profileSection === "blocked" ? (
+              <BlockedUsersSection currentAccountId={account.id} />
+            ) : (
+              <>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                      Profile
+                    </h2>
+                    <p className="mt-1 text-base text-foreground-muted">
+                      Manage your public information, avatar, and contact
+                      credentials.
+                    </p>
                   </div>
-                  <p
-                    className="mt-3 text-xs text-foreground-muted"
-                    id="avatar-remove-unavailable"
+                  <button
+                    aria-describedby={
+                      displayNameError || bioError
+                        ? "profile-form-error"
+                        : undefined
+                    }
+                    className="min-h-12 rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={
+                      !isProfileDirty ||
+                      Boolean(displayNameError) ||
+                      Boolean(bioError) ||
+                      isProfileMutationPending
+                    }
+                    onClick={() => void saveProfile()}
+                    type="button"
                   >
-                    Removing a profile photo is not available yet.
+                    {updateCurrentProfile.isPending
+                      ? "Saving…"
+                      : "Save Changes"}
+                  </button>
+                </div>
+                <section
+                  aria-labelledby="profile-details-title"
+                  className="mt-8 rounded-3xl border border-border bg-surface p-5 sm:p-7"
+                >
+                  <div className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-center">
+                    <span className="relative w-fit">
+                      <ProfileAvatar
+                        name={identity}
+                        size="lg"
+                        url={profile.avatar}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="absolute bottom-0 right-0 grid size-10 place-items-center rounded-full border-4 border-surface bg-primary text-lg text-primary-foreground"
+                      >
+                        ⌾
+                      </span>
+                    </span>
+                    <div>
+                      <h3
+                        className="text-lg font-semibold text-foreground"
+                        id="profile-details-title"
+                      >
+                        Profile Photo
+                      </h3>
+                      <p className="mt-1 text-sm text-foreground-muted">
+                        Your avatar is provided by your Pyaw profile.
+                      </p>
+                      <div className="mt-4 flex items-center gap-5">
+                        <input
+                          accept="image/gif,image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          disabled={isProfileMutationPending}
+                          id="profile-avatar-upload"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+
+                            if (file) {
+                              void uploadAvatar(file);
+                            }
+                          }}
+                          ref={avatarInputRef}
+                          type="file"
+                        />
+                        <button
+                          className="rounded-full bg-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={isProfileMutationPending}
+                          onClick={() => avatarInputRef.current?.click()}
+                          type="button"
+                        >
+                          {isUploadingAvatar ? "Uploading…" : "Upload New"}
+                        </button>
+                        <button
+                          aria-describedby="avatar-remove-unavailable"
+                          className="cursor-not-allowed text-sm font-medium text-foreground-muted opacity-60"
+                          disabled
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <p
+                        className="mt-3 text-xs text-foreground-muted"
+                        id="avatar-remove-unavailable"
+                      >
+                        Removing a profile photo is not available yet.
+                      </p>
+                      {avatarFeedback ? (
+                        <p
+                          className={`mt-3 text-sm ${
+                            avatarFeedback.type === "error"
+                              ? "text-danger"
+                              : "text-foreground-muted"
+                          }`}
+                          role={
+                            avatarFeedback.type === "error" ? "alert" : "status"
+                          }
+                        >
+                          {avatarFeedback.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="mt-7 grid gap-5 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-foreground">
+                        Display Name
+                      </span>
+                      <input
+                        aria-describedby={
+                          displayNameError ? "profile-form-error" : undefined
+                        }
+                        aria-invalid={Boolean(displayNameError)}
+                        className="h-12 w-full rounded-2xl border border-border bg-surface px-4 text-base text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isProfileMutationPending}
+                        maxLength={MAX_DISPLAY_NAME_LENGTH + 1}
+                        onChange={(event) => {
+                          setDisplayName(event.target.value);
+                          setProfileFeedback(undefined);
+                        }}
+                        type="text"
+                        value={displayName}
+                      />
+                    </label>
+                    <ProfileField label="Username">
+                      {account.username ? `@${account.username}` : "Not set"}
+                    </ProfileField>
+                  </div>
+                  <label className="mt-5 block">
+                    <span className="mb-2 block text-sm font-medium text-foreground">
+                      About / Bio
+                    </span>
+                    <textarea
+                      aria-describedby={
+                        bioError ? "profile-form-error" : undefined
+                      }
+                      aria-invalid={Boolean(bioError)}
+                      className="min-h-24 w-full resize-none rounded-2xl border border-border bg-surface px-4 py-3 text-base leading-6 text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isProfileMutationPending}
+                      maxLength={MAX_BIO_LENGTH + 1}
+                      onChange={(event) => {
+                        setBio(event.target.value);
+                        setProfileFeedback(undefined);
+                      }}
+                      placeholder="Tell people a little about yourself."
+                      value={bio}
+                    />
+                    <span className="mt-2 block text-right text-xs font-medium text-foreground-muted">
+                      {bio.length} / {MAX_BIO_LENGTH}
+                    </span>
+                  </label>
+                  {displayNameError || bioError || profileFeedback ? (
+                    <p
+                      className={`mt-4 text-sm ${
+                        displayNameError ||
+                        bioError ||
+                        profileFeedback?.type === "error"
+                          ? "text-danger"
+                          : "text-foreground-muted"
+                      }`}
+                      id="profile-form-error"
+                      role={
+                        displayNameError ||
+                        bioError ||
+                        profileFeedback?.type === "error"
+                          ? "alert"
+                          : "status"
+                      }
+                    >
+                      {displayNameError || bioError || profileFeedback?.message}
+                    </p>
+                  ) : null}
+                  <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                    <ProfileField label="Phone Number">
+                      {account.phone}
+                    </ProfileField>
+                    <div className="rounded-2xl border border-border bg-input px-4 py-3">
+                      <p className="text-sm font-medium text-foreground">
+                        Account status
+                      </p>
+                      <p className="mt-1 text-sm text-emerald-700">
+                        {account.status === "ACTIVE"
+                          ? "Verified active account"
+                          : account.status}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+                <section aria-labelledby="privacy-title" className="mt-10">
+                  <h2
+                    className="text-3xl font-semibold tracking-tight text-foreground"
+                    id="privacy-title"
+                  >
+                    Privacy
+                  </h2>
+                  <p className="mt-1 text-base text-foreground-muted">
+                    Choose what your connections can see about your presence.
                   </p>
-                  {avatarFeedback ? (
+                  <div className="mt-7 divide-y divide-border overflow-hidden rounded-3xl border border-border bg-surface">
+                    {privacyQuery.isPending ? (
+                      <p
+                        className="px-5 py-5 text-sm text-foreground-muted sm:px-6"
+                        role="status"
+                      >
+                        Loading privacy settings…
+                      </p>
+                    ) : privacyQuery.isError || !privacyQuery.data ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-6">
+                        <p className="text-sm text-danger" role="alert">
+                          Privacy settings are unavailable.
+                        </p>
+                        <button
+                          className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+                          onClick={() => void privacyQuery.refetch()}
+                          type="button"
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <PrivacySettingRow
+                          checked={privacyQuery.data.onlineVisibleToConnections}
+                          description="Let your connections see when you are online."
+                          disabled={updateAccountPrivacy.isPending}
+                          onChange={() =>
+                            void updatePrivacySetting(
+                              "onlineVisibleToConnections",
+                              !privacyQuery.data.onlineVisibleToConnections,
+                            )
+                          }
+                          title="Online status"
+                        />
+                        <PrivacySettingRow
+                          checked={
+                            privacyQuery.data.lastSeenVisibleToConnections
+                          }
+                          description="Let your connections see when you were last active."
+                          disabled={updateAccountPrivacy.isPending}
+                          onChange={() =>
+                            void updatePrivacySetting(
+                              "lastSeenVisibleToConnections",
+                              !privacyQuery.data.lastSeenVisibleToConnections,
+                            )
+                          }
+                          title="Last seen"
+                        />
+                      </>
+                    )}
+                  </div>
+                  {privacyFeedback ? (
                     <p
                       className={`mt-3 text-sm ${
-                        avatarFeedback.type === "error"
+                        privacyFeedback.type === "error"
                           ? "text-danger"
                           : "text-foreground-muted"
                       }`}
                       role={
-                        avatarFeedback.type === "error" ? "alert" : "status"
+                        privacyFeedback.type === "error" ? "alert" : "status"
                       }
                     >
-                      {avatarFeedback.message}
+                      {privacyFeedback.message}
                     </p>
                   ) : null}
-                </div>
-              </div>
-              <div className="mt-7 grid gap-5 sm:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">
-                    Display Name
-                  </span>
-                  <input
-                    aria-describedby={
-                      displayNameError ? "profile-form-error" : undefined
-                    }
-                    aria-invalid={Boolean(displayNameError)}
-                    className="h-12 w-full rounded-2xl border border-border bg-surface px-4 text-base text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isProfileMutationPending}
-                    maxLength={MAX_DISPLAY_NAME_LENGTH + 1}
-                    onChange={(event) => {
-                      setDisplayName(event.target.value);
-                      setProfileFeedback(undefined);
-                    }}
-                    type="text"
-                    value={displayName}
-                  />
-                </label>
-                <ProfileField label="Username">
-                  {account.username ? `@${account.username}` : "Not set"}
-                </ProfileField>
-              </div>
-              <label className="mt-5 block">
-                <span className="mb-2 block text-sm font-medium text-foreground">
-                  About / Bio
-                </span>
-                <textarea
-                  aria-describedby={bioError ? "profile-form-error" : undefined}
-                  aria-invalid={Boolean(bioError)}
-                  className="min-h-24 w-full resize-none rounded-2xl border border-border bg-surface px-4 py-3 text-base leading-6 text-foreground outline-none transition focus:border-focus focus:ring-2 focus:ring-focus/20 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isProfileMutationPending}
-                  maxLength={MAX_BIO_LENGTH + 1}
-                  onChange={(event) => {
-                    setBio(event.target.value);
-                    setProfileFeedback(undefined);
-                  }}
-                  placeholder="Tell people a little about yourself."
-                  value={bio}
-                />
-                <span className="mt-2 block text-right text-xs font-medium text-foreground-muted">
-                  {bio.length} / {MAX_BIO_LENGTH}
-                </span>
-              </label>
-              {displayNameError || bioError || profileFeedback ? (
-                <p
-                  className={`mt-4 text-sm ${
-                    displayNameError ||
-                    bioError ||
-                    profileFeedback?.type === "error"
-                      ? "text-danger"
-                      : "text-foreground-muted"
-                  }`}
-                  id="profile-form-error"
-                  role={
-                    displayNameError ||
-                    bioError ||
-                    profileFeedback?.type === "error"
-                      ? "alert"
-                      : "status"
-                  }
-                >
-                  {displayNameError || bioError || profileFeedback?.message}
-                </p>
-              ) : null}
-              <div className="mt-5 grid gap-5 sm:grid-cols-2">
-                <ProfileField label="Phone Number">
-                  {account.phone}
-                </ProfileField>
-                <div className="rounded-2xl border border-border bg-input px-4 py-3">
-                  <p className="text-sm font-medium text-foreground">
-                    Account status
-                  </p>
-                  <p className="mt-1 text-sm text-emerald-700">
-                    {account.status === "ACTIVE"
-                      ? "Verified active account"
-                      : account.status}
-                  </p>
-                </div>
-              </div>
-            </section>
-            <section aria-labelledby="privacy-title" className="mt-10">
-              <h2
-                className="text-3xl font-semibold tracking-tight text-foreground"
-                id="privacy-title"
-              >
-                Privacy
-              </h2>
-              <p className="mt-1 text-base text-foreground-muted">
-                Choose what your connections can see about your presence.
-              </p>
-              <div className="mt-7 divide-y divide-border overflow-hidden rounded-3xl border border-border bg-surface">
-                {privacyQuery.isPending ? (
-                  <p
-                    className="px-5 py-5 text-sm text-foreground-muted sm:px-6"
-                    role="status"
-                  >
-                    Loading privacy settings…
-                  </p>
-                ) : privacyQuery.isError || !privacyQuery.data ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-6">
-                    <p className="text-sm text-danger" role="alert">
-                      Privacy settings are unavailable.
-                    </p>
-                    <button
-                      className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold text-foreground transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
-                      onClick={() => void privacyQuery.refetch()}
-                      type="button"
-                    >
-                      Try again
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <PrivacySettingRow
-                      checked={privacyQuery.data.onlineVisibleToConnections}
-                      description="Let your connections see when you are online."
-                      disabled={updateAccountPrivacy.isPending}
-                      onChange={() =>
-                        void updatePrivacySetting(
-                          "onlineVisibleToConnections",
-                          !privacyQuery.data.onlineVisibleToConnections,
-                        )
-                      }
-                      title="Online status"
-                    />
-                    <PrivacySettingRow
-                      checked={privacyQuery.data.lastSeenVisibleToConnections}
-                      description="Let your connections see when you were last active."
-                      disabled={updateAccountPrivacy.isPending}
-                      onChange={() =>
-                        void updatePrivacySetting(
-                          "lastSeenVisibleToConnections",
-                          !privacyQuery.data.lastSeenVisibleToConnections,
-                        )
-                      }
-                      title="Last seen"
-                    />
-                  </>
-                )}
-              </div>
-              {privacyFeedback ? (
-                <p
-                  className={`mt-3 text-sm ${
-                    privacyFeedback.type === "error"
-                      ? "text-danger"
-                      : "text-foreground-muted"
-                  }`}
-                  role={privacyFeedback.type === "error" ? "alert" : "status"}
-                >
-                  {privacyFeedback.message}
-                </p>
-              ) : null}
-            </section>
+                </section>
+              </>
+            )}
           </div>
         </div>
       </div>

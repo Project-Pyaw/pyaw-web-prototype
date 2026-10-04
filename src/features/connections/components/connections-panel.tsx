@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { BlockConfirmationDialog } from "@/features/blocks/components/block-confirmation-dialog";
+import { useBlockAccount } from "@/features/blocks/hooks/use-blocks";
 import { useOpenDirectConversation } from "@/features/conversations/hooks/use-conversations";
 import { useCounterpartPresence } from "@/features/messages/hooks/use-counterpart-presence";
 import {
@@ -136,10 +138,14 @@ function RequestItem({ request }: Readonly<{ request: ConnectionRequest }>) {
 }
 
 function PeopleInspector({
+  currentAccountId,
+  onBlocked,
   onClose,
   onRequestSent,
   person,
 }: Readonly<{
+  currentAccountId: string;
+  onBlocked: () => void;
   onClose?: () => void;
   onRequestSent?: () => void;
   person: SelectedPerson;
@@ -147,8 +153,13 @@ function PeopleInspector({
   const router = useRouter();
   const openDirectConversation = useOpenDirectConversation();
   const sendRequest = useSendConnectionRequest();
+  const blockAccount = useBlockAccount(currentAccountId);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [blockError, setBlockError] = useState<string>();
   const isOpeningChatRef = useRef(false);
   const isSendingRequestRef = useRef(false);
+  const isBlockingRef = useRef(false);
+  const blockButtonRef = useRef<HTMLButtonElement>(null);
   const presence = useCounterpartPresence(person.account.id);
   const identity = getProfileDisplayName(
     person.account.profile?.displayName,
@@ -184,6 +195,31 @@ function PeopleInspector({
       },
       onSuccess: () => onRequestSent?.(),
     });
+  }
+
+  function confirmBlock(): void {
+    if (isBlockingRef.current) {
+      return;
+    }
+
+    isBlockingRef.current = true;
+    setBlockError(undefined);
+    blockAccount.mutate(person.account.id, {
+      onError: () =>
+        setBlockError("Unable to block this person. Please try again."),
+      onSettled: () => {
+        isBlockingRef.current = false;
+      },
+      onSuccess: () => {
+        setIsBlockDialogOpen(false);
+        onBlocked();
+      },
+    });
+  }
+
+  function closeBlockDialog(): void {
+    setIsBlockDialogOpen(false);
+    requestAnimationFrame(() => blockButtonRef.current?.focus());
   }
 
   return (
@@ -275,8 +311,29 @@ function PeopleInspector({
               {getErrorMessage(openDirectConversation.error)}
             </p>
           ) : null}
+          {person.relationship !== "self" ? (
+            <button
+              className="mt-3 min-h-11 w-full rounded-full border border-danger/30 px-4 text-sm font-semibold text-danger transition-colors hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/20"
+              onClick={() => {
+                setBlockError(undefined);
+                setIsBlockDialogOpen(true);
+              }}
+              ref={blockButtonRef}
+              type="button"
+            >
+              Block user
+            </button>
+          ) : null}
         </div>
       </div>
+      <BlockConfirmationDialog
+        account={person.account}
+        error={blockError}
+        isOpen={isBlockDialogOpen}
+        isSubmitting={blockAccount.isPending}
+        onCancel={closeBlockDialog}
+        onConfirm={confirmBlock}
+      />
     </section>
   );
 }
@@ -708,6 +765,8 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
       <aside className="hidden min-h-0 border-l border-border xl:flex">
         {selectedPerson ? (
           <PeopleInspector
+            currentAccountId={currentAccountId}
+            onBlocked={() => setSelectedPerson(null)}
             onRequestSent={markSelectedRequestAsSent}
             person={selectedPerson}
           />
@@ -723,6 +782,11 @@ export function ConnectionsPanel({ currentAccountId }: ConnectionsPanelProps) {
       {selectedPerson && showCompactInspector ? (
         <div className="absolute inset-0 z-20 flex bg-surface xl:hidden">
           <PeopleInspector
+            currentAccountId={currentAccountId}
+            onBlocked={() => {
+              setSelectedPerson(null);
+              setShowCompactInspector(false);
+            }}
             onClose={() => setShowCompactInspector(false)}
             onRequestSent={markSelectedRequestAsSent}
             person={selectedPerson}
