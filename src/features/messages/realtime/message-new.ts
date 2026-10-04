@@ -137,7 +137,7 @@ function mapReplyTo(value: unknown): ReplyMessagePreview | null | undefined {
       !isRecord(profile) ||
       typeof profile.id !== "string" ||
       !isNullableString(profile.displayName) ||
-      !isNullableString(profile.avatar)
+      ("avatar" in profile && !isNullableString(profile.avatar))
     ) {
       return undefined;
     }
@@ -145,7 +145,7 @@ function mapReplyTo(value: unknown): ReplyMessagePreview | null | undefined {
     mappedProfile = {
       id: profile.id,
       displayName: profile.displayName,
-      avatar: profile.avatar,
+      avatar: typeof profile.avatar === "string" ? profile.avatar : null,
     };
   }
 
@@ -179,6 +179,9 @@ export function mapMessageNewEvent(
   const attachments = mapAttachments(data.attachments);
   const reactions = mapReactions(data.reactions);
   const replyTo = mapReplyTo(data.replyTo);
+  // The REST-compatible message projection does not expose reactionVersion.
+  // A newly created message has not had a reaction mutation, so its version is 0.
+  const reactionVersion = "reactionVersion" in data ? data.reactionVersion : 0;
 
   if (
     typeof data.id !== "string" ||
@@ -191,9 +194,9 @@ export function mapMessageNewEvent(
     attachments === null ||
     reactions === null ||
     replyTo === undefined ||
-    typeof data.reactionVersion !== "number" ||
-    !Number.isSafeInteger(data.reactionVersion) ||
-    data.reactionVersion < 0 ||
+    typeof reactionVersion !== "number" ||
+    !Number.isSafeInteger(reactionVersion) ||
+    reactionVersion < 0 ||
     typeof data.createdAt !== "string" ||
     Number.isNaN(Date.parse(data.createdAt)) ||
     !isRecord(sender) ||
@@ -214,7 +217,7 @@ export function mapMessageNewEvent(
       !isRecord(profile) ||
       typeof profile.id !== "string" ||
       !isNullableString(profile.displayName) ||
-      !isNullableString(profile.avatar)
+      ("avatar" in profile && !isNullableString(profile.avatar))
     ) {
       return null;
     }
@@ -222,7 +225,7 @@ export function mapMessageNewEvent(
     mappedProfile = {
       id: profile.id,
       displayName: profile.displayName,
-      avatar: profile.avatar,
+      avatar: typeof profile.avatar === "string" ? profile.avatar : null,
     };
   }
 
@@ -237,7 +240,7 @@ export function mapMessageNewEvent(
     createdAt: data.createdAt,
     attachments,
     reactions,
-    reactionVersion: data.reactionVersion,
+    reactionVersion,
     replyTo,
     sender: {
       accountId: sender.accountId,

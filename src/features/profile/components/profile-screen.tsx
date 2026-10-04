@@ -356,8 +356,8 @@ export function ProfileScreen() {
     updateCurrentProfile.isPending || isUploadingAvatar;
 
   function navigateFromProfile(section: AppNavigationSection) {
-    if (section === "connections") {
-      router.push("/chat?workspace=connections");
+    if (section === "people") {
+      router.push("/people");
       return;
     }
 

@@ -1,14 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 import {
   AppHeader,
   type AppNavigationSection,
 } from "@/components/layout/app-header";
 import { AppWorkspace } from "@/components/layout/app-workspace";
-import { ConnectionsPanel } from "@/features/connections/components/connections-panel";
 import {
   getProfileDisplayName,
   ProfileAvatar,
@@ -27,20 +25,15 @@ type ChatShellProps = Readonly<{
     displayName: string | null;
     avatar: string | null;
   }>;
-  initialWorkspace?: Workspace;
   selectedConversationId?: string;
 }>;
-
-type Workspace = "chats" | "connections";
 
 export function ChatShell({
   currentAccount,
   currentProfile,
-  initialWorkspace = "chats",
   selectedConversationId,
 }: ChatShellProps) {
   const router = useRouter();
-  const [workspace, setWorkspace] = useState<Workspace>(initialWorkspace);
   const conversations = useConversations(true);
   const selectedConversation = conversations.data?.pages
     .flatMap((page) => page.items)
@@ -62,7 +55,7 @@ export function ChatShell({
   return (
     <AppWorkspace className="flex flex-col">
       <AppHeader
-        activeSection={workspace}
+        activeSection="chats"
         endContent={
           <button
             aria-label={`Open profile for ${getProfileDisplayName(
@@ -97,7 +90,6 @@ export function ChatShell({
           </button>
         }
         onBrandClick={() => {
-          setWorkspace("chats");
           router.push("/chat");
         }}
         onNavigate={(section: AppNavigationSection) => {
@@ -106,47 +98,41 @@ export function ChatShell({
             return;
           }
 
-          if (section === "connections") {
-            router.push("/chat?workspace=connections");
+          if (section === "people") {
+            router.push("/people");
             return;
           }
-
-          setWorkspace(section);
 
           if (section === "chats") {
             router.push("/chat");
           }
         }}
       />
-      {workspace === "connections" ? (
-        <ConnectionsPanel currentAccountId={currentAccount.id} />
-      ) : (
-        <div className="grid min-h-0 flex-1 md:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)]">
-          <div
-            className={`${
-              showConversation ? "hidden md:flex" : "flex"
-            } min-h-0 w-full flex-col overflow-hidden border-r border-border bg-surface`}
-          >
-            <ConversationSidebar
-              selectedConversationId={selectedConversationId}
-              self={self}
-            />
-          </div>
-          <div
-            className={`${
-              showConversation ? "flex" : "hidden md:flex"
-            } min-h-0 min-w-0 flex-col overflow-hidden`}
-          >
-            <ConversationEmptyState
-              conversation={selectedConversation}
-              currentAccountId={currentAccount.id}
-              isLoading={conversations.isPending}
-              selectedConversationId={selectedConversationId}
-              self={self}
-            />
-          </div>
+      <div className="grid min-h-0 flex-1 md:grid-cols-[clamp(19rem,28vw,25rem)_minmax(0,1fr)]">
+        <div
+          className={`${
+            showConversation ? "hidden md:flex" : "flex"
+          } min-h-0 w-full flex-col overflow-hidden border-r border-border bg-surface`}
+        >
+          <ConversationSidebar
+            selectedConversationId={selectedConversationId}
+            self={self}
+          />
         </div>
-      )}
+        <div
+          className={`${
+            showConversation ? "flex" : "hidden md:flex"
+          } min-h-0 min-w-0 flex-col overflow-hidden`}
+        >
+          <ConversationEmptyState
+            conversation={selectedConversation}
+            currentAccountId={currentAccount.id}
+            isLoading={conversations.isPending}
+            selectedConversationId={selectedConversationId}
+            self={self}
+          />
+        </div>
+      </div>
     </AppWorkspace>
   );
 }

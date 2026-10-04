@@ -11,7 +11,6 @@ import { UsernameSetupScreen } from "@/features/profile/components/username-setu
 import { useCurrentProfile } from "@/features/profile/hooks/use-current-profile";
 
 type ChatPlaceholderProps = Readonly<{
-  initialWorkspace?: "chats" | "connections";
   selectedConversationId?: string;
 }>;
 
@@ -67,7 +66,6 @@ function ChatBootstrapSkeleton() {
 }
 
 export function ChatPlaceholder({
-  initialWorkspace,
   selectedConversationId,
 }: ChatPlaceholderProps) {
   const router = useRouter();
@@ -142,7 +140,6 @@ export function ChatPlaceholder({
     <ChatShell
       currentAccount={account}
       currentProfile={profile}
-      initialWorkspace={initialWorkspace}
       selectedConversationId={selectedConversationId}
     />
   );

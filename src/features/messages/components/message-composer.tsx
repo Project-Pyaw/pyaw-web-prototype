@@ -172,7 +172,7 @@ export function MessageComposer({
   return (
     <form
       ref={formRef}
-      className="chat-composer sticky bottom-0 z-10 shrink-0 border-t border-border bg-surface px-4 pt-3 sm:px-8"
+      className="chat-composer shrink-0 border-t border-border bg-surface px-4 pt-3 sm:px-8"
       onSubmit={handleSubmit}
     >
       {replyTo ? (
